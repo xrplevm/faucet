@@ -1,0 +1,47 @@
+{
+  "name": "xrpl-evm-website",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+  "dev": "next dev --turbopack -p 5089",
+  "build": "next build",
+  "start": "next start -p 5089",
+  "lint": "next lint"
+},
+  "dependencies": {
+    "@metamask/providers": "^20.0.0",
+    "@radix-ui/react-accordion": "^1.2.3",
+    "@radix-ui/react-navigation-menu": "^1.2.5",
+    "@radix-ui/react-slot": "^1.1.2",
+    "@svgdotjs/svg.filter.js": "^3.0.9",
+    "@svgdotjs/svg.js": "^3.2.4",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "lucide-react": "^0.476.0",
+    "motion": "^12.4.7",
+    "next": "15.2.1",
+    "react": "19.0.0",
+    "react-dom": "19.0.0",
+    "socket.io-client": "^4.8.1",
+    "tailwind-merge": "^3.0.2",
+    "tailwindcss-animate": "^1.0.7",
+    "xrpl": "^4.2.0"
+  },
+  "devDependencies": {
+    "@eslint/eslintrc": "^3",
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^20",
+    "@types/react": "19.0.10",
+    "@types/react-dom": "19.0.4",
+    "eslint": "^9",
+    "eslint-config-next": "15.2.0",
+    "tailwindcss": "^4",
+    "typescript": "^5"
+  },
+  "pnpm": {
+    "overrides": {
+      "@types/react": "19.0.10",
+      "@types/react-dom": "19.0.4"
+    }
+  }
+}
