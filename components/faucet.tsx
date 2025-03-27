@@ -86,8 +86,8 @@ export function Faucet({
   const [joinedDiscord, setJoinedDiscord] = useState<boolean>(false);
 
   // Faucet request state
-  const [loading, setLoading] = useState<boolean>(false);
-  const [waitTime, setWaitTime] = useState<number>(0);
+  const [loading] = useState<boolean>(false);
+  const [waitTime] = useState<number>(0);
 
   // Connect/Disconnect dropdown
   const [showDisconnectMenu, setShowDisconnectMenu] = useState<boolean>(false);
@@ -213,46 +213,6 @@ export function Faucet({
       } catch (error) {
         console.error("Error disconnecting wallet:", error);
       }
-    }
-  };
-
-  /**
-   * The main faucet request
-   */
-  const handleRequestXRP = async (): Promise<void> => {
-    if (!followedTwitter || !joinedDiscord) {
-      setShowMissingRequirementsModal(true);
-      return;
-    }
-    // Use the typed "evmAddress" for the faucet request
-    if (!evmAddress.startsWith("0x") || evmAddress.length < 10) {
-      alert("Please enter a valid EVM address (starting with 0x).");
-      return;
-    }
-    setLoading(true);
-    setWaitTime(10);
-
-    try {
-      const resp = await fetch("http://localhost:5005/api/faucet", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ network, evmAddress }),
-      });
-      const data = await resp.json();
-      if (!data.success) {
-        throw new Error(data.error || "Faucet failed");
-      }
-      console.log("Faucet TX started. XRPL Hash:", data.txHash);
-    } catch (error: unknown) {
-      console.error(error);
-      if (error instanceof Error) {
-        alert("Error requesting faucet: " + error.message);
-      } else {
-        alert("Error requesting faucet: " + String(error));
-      }
-    } finally {
-      setLoading(false);
-      setWaitTime(0);
     }
   };
 
@@ -419,6 +379,7 @@ export function Faucet({
     ? "border border-white/30 bg-[#2E2E2E] text-gray-200 cursor-not-allowed"
     : "border border-white/20 bg-background text-foreground focus:placeholder-transparent";
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const getXrp = useGetXrp(network.toLowerCase() as any);
 
   return (
