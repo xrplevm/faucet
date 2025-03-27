@@ -9,8 +9,8 @@ const networks = {
     },
     testnet: {
         faucet: "https://faucet.altnet.rippletest.net/accounts",
-        bridgeGateway: "r2",
-        bridgeNetwork: "xrpl-evm-test-1",
+        bridgeGateway: "rNrjh1KGZk2jBR3wPfAQnoidtFFYQKbQn2",
+        bridgeNetwork: "xrpl-evm",
         wsUrl: "wss://s.altnet.rippletest.net:51233/"
     },
 }
@@ -32,7 +32,7 @@ export const useGetXrp = (network: Network) => {
 
         const json = await resp.json();
 
-        await setTimeout(() => {}, 10000);
+        await new Promise((res) => setTimeout(res, 5000));
 
         const amount = json.amount - reserve - transferFee;
 
@@ -74,7 +74,7 @@ const prepareBridgeTransaction = (originAddress: string, destinationNetwork: Net
         },
         {
             Memo: {
-                MemoData: Buffer.from("0").toString("hex").toUpperCase(),
+                MemoData: Buffer.from("1000000").toString("hex").toUpperCase(),
                 MemoType: Buffer.from("gas_fee_amount").toString("hex").toUpperCase(),
             },
         },
