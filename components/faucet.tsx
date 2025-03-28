@@ -1,7 +1,7 @@
 import React, { useState, useEffect, JSX } from "react";
 import { Button } from "./ui/button";
 import { BridgingProgress } from "./bridging-progress";
-import { Logo } from "./logo";
+import { Logo } from "./logoFaucet";
 import { ConnectWalletButton } from "./connect-wallet-button";
 import { MetamaskButton } from "./metamask-button";
 import { useGetXrp } from "@/app/useGetXrp";
@@ -197,14 +197,17 @@ export function Faucet({ network, setNetwork, evmAddressFromHeader }: FaucetProp
   };
 
   return (
-    <>
-      <section className="flex flex-col items-center justify-center gap-5 px-4 py-8">
-        <div className="mb-8" style={{ transform: "scale(3)", transformOrigin: "center" }}>
+    <section className="flex justify-center items-center w-full px-4 py-8">
+      <div className="w-full max-w-xl mx-auto p-2 bg-black/0 rounded-lg transform-gpu origin-top scale-[0.9] md:scale-100">
+        
+      <div className="mb-8 flex justify-center w-full logo-container">
           <Logo />
         </div>
-        <div className="mb-4 flex items-center gap-3">
+  
+        {/* Connect and Add Network buttons arranged vertically on mobile */}
+        <div className="flex flex-col items-center gap-3 mb-4 md:flex-row md:justify-center">
           <ConnectWalletButton
-            onConnected={(addr: string) => {
+            onConnected={(addr) => {
               setConnectedAddress(addr);
               setEvmAddress(addr);
             }}
@@ -224,6 +227,7 @@ export function Faucet({ network, setNetwork, evmAddressFromHeader }: FaucetProp
             <MetamaskButton className="h-10" network={network} />
           )}
         </div>
+  
         <div className="flex flex-col items-center gap-2">
           <label htmlFor="network" className="font-semibold">
             Select Network
@@ -232,15 +236,15 @@ export function Faucet({ network, setNetwork, evmAddressFromHeader }: FaucetProp
             id="network"
             className="border rounded-md px-3 py-2 bg-background text-foreground"
             value={network}
-            onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
-              setNetwork(e.target.value as NetworkType)
-            }
+            onChange={(e) => setNetwork(e.target.value as NetworkType)}
           >
             <option value="Devnet">Devnet</option>
             <option value="Testnet">Testnet</option>
           </select>
         </div>
-        <div className="flex flex-col items-center gap-1">
+  
+        {/* EVM Address input now adapts to container width */}
+        <div className="flex flex-col items-center gap-2 mt-4">
           <label htmlFor="evmAddress" className="font-semibold">
             Your Address
           </label>
@@ -248,20 +252,21 @@ export function Faucet({ network, setNetwork, evmAddressFromHeader }: FaucetProp
             id="evmAddress"
             type="text"
             value={evmAddress}
-            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEvmAddress(e.target.value)}
+            onChange={(e) => setEvmAddress(e.target.value)}
             placeholder="0x5l8r9m..."
             disabled={isConnected}
-            className={`rounded-md px-3 py-2 w-[459px] ${
+            className={`rounded-md px-3 py-2 w-full max-w-[460px] ${
               isConnected
                 ? "border border-white/30 bg-[#2E2E2E] text-gray-200 cursor-not-allowed"
                 : "border border-white/20 bg-background text-foreground focus:placeholder-transparent"
             }`}
           />
         </div>
+  
         <p className="text-center font-medium mt-4">
           Before requesting, please complete the following:
         </p>
-        <ul className="flex flex-col items-center gap-2 text-center">
+        <ul className="flex flex-col items-center gap-2 text-center mt-2">
           <li>
             <a
               href="https://x.com/Peersyst"
@@ -287,26 +292,28 @@ export function Faucet({ network, setNetwork, evmAddressFromHeader }: FaucetProp
             {joinedDiscord && "✓"}
           </li>
         </ul>
+  
         <Button
           variant="default"
           size="lg"
-          className="mt-4"
+          className="mt-4 w-full"
           onClick={handleRequestXRP}
           disabled={loading}
         >
-          {loading ? `Waiting ~...` : "Request 90 XRP"}
+          {loading ? "Waiting ~..." : "Request 90 XRP"}
         </Button>
-      </section>
-
+      </div>
+  
       {/* Transaction Status Modal */}
       {showTxModal && txData && <TransactionStatusModal />}
-
+  
+      {/* Missing Requirements Modal */}
       {showMissingRequirementsModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
           <div className="bg-[#1E1E1E] w-[500px] max-w-[90%] p-6 rounded-xl shadow-xl text-white">
             <h2 className="text-2xl font-bold mb-6 text-center">Almost there!</h2>
             <p className="mb-4 text-center">
-              Please make sure you follow us on 𝕏 and join our Discord 👾 before requesting test XRP.
+              Please follow us on 𝕏 and join our Discord before requesting test XRP.
             </p>
             <button
               className="mt-4 w-full py-3 rounded-md bg-green-600 hover:bg-green-500 font-semibold text-white"
@@ -317,16 +324,13 @@ export function Faucet({ network, setNetwork, evmAddressFromHeader }: FaucetProp
           </div>
         </div>
       )}
-
-
-      {/* NEW: Invalid Address Modal */}
+  
+      {/* Invalid Address Modal */}
       {showInvalidAddressModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
           <div className="bg-[#1E1E1E] w-[400px] max-w-[70%] p-6 rounded-xl shadow-xl text-white">
             <h2 className="text-2xl font-bold mb-6 text-center">Invalid EVM Address</h2>
-            <p className="mb-4">
-              Please enter a valid EVM address (starting with 0x).
-            </p>
+            <p className="mb-4">Please enter a valid EVM address (starting with 0x).</p>
             <button
               className="mt-4 w-full py-3 rounded-md bg-green-600 hover:bg-green-500 font-semibold text-white"
               onClick={() => setShowInvalidAddressModal(false)}
@@ -336,6 +340,6 @@ export function Faucet({ network, setNetwork, evmAddressFromHeader }: FaucetProp
           </div>
         </div>
       )}
-    </>
+    </section>
   );
 }

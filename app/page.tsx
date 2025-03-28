@@ -33,7 +33,7 @@ export default function Home() {
   // Once mounted, do your normal rendering
   return (
     <main className="flex flex-col min-h-screen w-full">
-      <div className="flex-grow flex items-center justify-center my-37">
+      <div className="flex-grow flex items-center justify-center my-7">
         <Faucet network={network} setNetwork={setNetwork} />
       </div>
       <Footer network={network} />
