@@ -33,6 +33,10 @@ export function Faucet({ network, setNetwork, evmAddressFromHeader }: FaucetProp
   const [txData, setTxData] = useState<{ txHash: string; sourceCloseTimeIso: string } | null>(null);
   const [showMissingRequirementsModal, setShowMissingRequirementsModal] = useState<boolean>(false);
   const [showTxModal, setShowTxModal] = useState<boolean>(false);
+
+  // NEW: Track invalid address modal visibility
+  const [showInvalidAddressModal, setShowInvalidAddressModal] = useState<boolean>(false);
+
   const [chainId, setChainId] = useState<string | null>(null);
 
   // Obtain the provider (if present) and then determine if MetaMask exists.
@@ -67,13 +71,13 @@ export function Faucet({ network, setNetwork, evmAddressFromHeader }: FaucetProp
           console.error('Invalid chain ID', chain);
         }
       };
-    
+
       ethereum.on("chainChanged", handleChainChanged);
-    
+
       return () => {
         ethereum.removeListener("chainChanged", handleChainChanged);
       };
-    }    
+    }
   }, [hasMetaMask, ethereum, connectedAddress]);
 
   const isConnected = connectedAddress !== "";
@@ -83,10 +87,12 @@ export function Faucet({ network, setNetwork, evmAddressFromHeader }: FaucetProp
       setShowMissingRequirementsModal(true);
       return;
     }
+    // Replace alert with modal trigger:
     if (!evmAddress.startsWith("0x") || evmAddress.length < 10) {
-      alert("Please enter a valid EVM address (starting with 0x).");
+      setShowInvalidAddressModal(true);
       return;
     }
+
     setLoading(true);
     try {
       const txHash = await getXrp(evmAddress);
@@ -190,10 +196,6 @@ export function Faucet({ network, setNetwork, evmAddressFromHeader }: FaucetProp
     );
   };
 
-  const addressInputClass = isConnected
-    ? "border border-white/30 bg-[#2E2E2E] text-gray-200 cursor-not-allowed"
-    : "border border-white/20 bg-background text-foreground focus:placeholder-transparent";
-
   return (
     <>
       <section className="flex flex-col items-center justify-center gap-5 px-4 py-8">
@@ -249,7 +251,11 @@ export function Faucet({ network, setNetwork, evmAddressFromHeader }: FaucetProp
             onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEvmAddress(e.target.value)}
             placeholder="0x5l8r9m..."
             disabled={isConnected}
-            className={`rounded-md px-3 py-2 w-[459px] ${addressInputClass}`}
+            className={`rounded-md px-3 py-2 w-[459px] ${
+              isConnected
+                ? "border border-white/30 bg-[#2E2E2E] text-gray-200 cursor-not-allowed"
+                : "border border-white/20 bg-background text-foreground focus:placeholder-transparent"
+            }`}
           />
         </div>
         <p className="text-center font-medium mt-4">
@@ -264,7 +270,7 @@ export function Faucet({ network, setNetwork, evmAddressFromHeader }: FaucetProp
               onClick={() => setFollowedTwitter(true)}
               className="underline text-blue-400 hover:text-blue-300"
             >
-              Follow @Peersyst on X
+              Follow @Peersyst on 𝕏
             </a>{" "}
             {followedTwitter && "✓"}
           </li>
@@ -291,17 +297,42 @@ export function Faucet({ network, setNetwork, evmAddressFromHeader }: FaucetProp
           {loading ? `Waiting ~...` : "Request 90 XRP"}
         </Button>
       </section>
+
+      {/* Transaction Status Modal */}
       {showTxModal && txData && <TransactionStatusModal />}
+
       {showMissingRequirementsModal && (
-        <div className="fixed inset-0 flex items-center justify-center z-50 bg-black/50">
-          <div className="bg-white rounded-md p-6 w-[500px] text-black">
-            <h2 className="text-xl font-bold mb-4">Almost there!</h2>
-            <p className="mb-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+          <div className="bg-[#1E1E1E] w-[500px] max-w-[90%] p-6 rounded-xl shadow-xl text-white">
+            <h2 className="text-2xl font-bold mb-6 text-center">Almost there!</h2>
+            <p className="mb-4 text-center">
               Please make sure you follow us on 𝕏 and join our Discord 👾 before requesting test XRP.
             </p>
-            <Button variant="secondary" onClick={() => setShowMissingRequirementsModal(false)}>
+            <button
+              className="mt-4 w-full py-3 rounded-md bg-green-600 hover:bg-green-500 font-semibold text-white"
+              onClick={() => setShowMissingRequirementsModal(false)}
+            >
               Close
-            </Button>
+            </button>
+          </div>
+        </div>
+      )}
+
+
+      {/* NEW: Invalid Address Modal */}
+      {showInvalidAddressModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+          <div className="bg-[#1E1E1E] w-[400px] max-w-[70%] p-6 rounded-xl shadow-xl text-white">
+            <h2 className="text-2xl font-bold mb-6 text-center">Invalid EVM Address</h2>
+            <p className="mb-4">
+              Please enter a valid EVM address (starting with 0x).
+            </p>
+            <button
+              className="mt-4 w-full py-3 rounded-md bg-green-600 hover:bg-green-500 font-semibold text-white"
+              onClick={() => setShowInvalidAddressModal(false)}
+            >
+              Close
+            </button>
           </div>
         </div>
       )}
