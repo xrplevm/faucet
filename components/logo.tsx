@@ -1,6 +1,8 @@
-export function Logo() {
+import { cn } from "@/lib/utils";
+
+export function Logo({ className, ...rest }: React.ComponentProps<"svg">) {
   return (
-    <svg width="140" height="30" viewBox="0 0 140 30" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <svg className={cn("w-[140px] h-[30px]", className)} viewBox="0 0 140 30" fill="none" xmlns="http://www.w3.org/2000/svg" {...rest}>
       <path
         d="M53.7115 6.10536L55.9697 1.50604H59.7737L55.9131 8.3655L59.8769 15.3405H56.0364L53.7136 10.6561L51.3907 15.3405H47.5583L51.5141 8.3655L47.6636 1.50604H51.4575L53.7156 6.10536H53.7115Z"
         fill="white"

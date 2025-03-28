@@ -5,6 +5,7 @@ import { Button } from "./ui/button";
 import { Icons } from "./icons";
 import { cn } from "@/lib/utils";
 import { InstallMetamaskModal } from "./install-metamask-modal"; // Import modal
+import { Popover, PopoverTrigger, PopoverContent } from "./ui/popover";
 
 interface ConnectWalletButtonProps {
   className?: string;
@@ -12,13 +13,8 @@ interface ConnectWalletButtonProps {
   onDisconnected?: () => void;
 }
 
-export function ConnectWalletButton({
-  className,
-  onConnected,
-  onDisconnected,
-}: ConnectWalletButtonProps) {
+export function ConnectWalletButton({ className, onConnected, onDisconnected }: ConnectWalletButtonProps) {
   const [connectedAccount, setConnectedAccount] = useState<string | null>(null);
-  const [showMenu, setShowMenu] = useState(false);
   const [, setIsReturningUser] = useState(true);
   const [mounted, setMounted] = useState(false); // <-- fix here
   const [hasMetaMask, setHasMetaMask] = useState<boolean>(false);
@@ -35,9 +31,9 @@ export function ConnectWalletButton({
 
     // Listen to "ethereum#initialized" event fired when MetaMask gets injected
     function handleEthereumInitialized() {
-        setHasMetaMask(true);
-        }
-    
+      setHasMetaMask(true);
+    }
+
     window.addEventListener("ethereum#initialized", handleEthereumInitialized, { once: true });
 
     // Polling every 2 seconds to check if MetaMask got installed
@@ -49,9 +45,9 @@ export function ConnectWalletButton({
     }, 2000);
 
     return () => {
-        window.removeEventListener("ethereum#initialized", handleEthereumInitialized);
-        clearInterval(interval); // clean up
-      };
+      window.removeEventListener("ethereum#initialized", handleEthereumInitialized);
+      clearInterval(interval); // clean up
+    };
   }, []);
 
   useEffect(() => {
@@ -92,21 +88,21 @@ export function ConnectWalletButton({
   // ✅ Connect flow
   async function connectWallet() {
     if (!window.ethereum) {
-        setShowInstallModal(true); // Open modal if MetaMask is not installed
-        return;
+      setShowInstallModal(true); // Open modal if MetaMask is not installed
+      return;
     }
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     if (typeof window === "undefined" || !(window as any).ethereum) return;
-  
+
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const ethereum = (window as any).ethereum;
-  
+
     try {
       // ✅ Only use this for connecting and permissions
       const accounts: string[] = await ethereum.request({
         method: "eth_requestAccounts",
       });
-  
+
       // If connected, handle connection
       if (accounts.length > 0) {
         setConnectedAccount(accounts[0]);
@@ -121,7 +117,6 @@ export function ConnectWalletButton({
 
   // ✅ Disconnect flow (simulated + permissions revoke)
   async function handleDisconnect() {
-    setShowMenu(false);
     setConnectedAccount(null);
     onDisconnected?.();
     onConnected?.("");
@@ -131,16 +126,16 @@ export function ConnectWalletButton({
 
     // Ensure window.ethereum is available before using it
     if (typeof window !== "undefined" && window.ethereum) {
-        try {
+      try {
         await window.ethereum.request({
-            method: "wallet_revokePermissions",
-            params: [{ eth_accounts: {} }],
+          method: "wallet_revokePermissions",
+          params: [{ eth_accounts: {} }],
         });
-        } catch (error) {
+      } catch (error) {
         console.error("Error revoking permissions:", error);
-        }
+      }
     } else {
-        console.warn("Ethereum provider is not available.");
+      console.warn("Ethereum provider is not available.");
     }
   }
 
@@ -166,33 +161,24 @@ export function ConnectWalletButton({
     );
   }
 
-
   // ✅ Connected
   if (connectedAccount) {
     const shortAddr = `${connectedAccount.slice(0, 6)}...${connectedAccount.slice(-4)}`;
-    return (
-      <div className="relative inline-block">
-        <Button
-          variant="outline"
-          size="lg"
-          className={cn("cursor-pointer gap-2 bg-white/[0.04] border-white/[0.08]", className)}
-          onClick={() => setShowMenu(!showMenu)}
-        >
-          <div className="w-2 h-2 rounded-full bg-green-500" />
-          <span className="font-semibold">{shortAddr}</span>
-        </Button>
 
-        {showMenu && (
-          <div className="absolute top-full right-0 mt-2 w-[140px] bg-[#1E1E1E] border border-white/10 rounded-md shadow-lg p-2 z-50">
-            <button
-              className="w-full text-left px-2 py-1 hover:bg-white/10 rounded-md"
-              onClick={handleDisconnect}
-            >
-              Disconnect
-            </button>
-          </div>
-        )}
-      </div>
+    return (
+      <Popover>
+        <PopoverTrigger asChild>
+          <Button variant="outline" size="lg" className={cn("gap-2 bg-white/[0.04] border-white/[0.08]", className)}>
+            <div className="w-2 h-2 rounded-full bg-green-500" />
+            <span className="font-semibold">{shortAddr}</span>
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-40 p-2">
+          <button className="w-full text-left px-2 py-1 hover:bg-white/10 rounded-md" onClick={handleDisconnect}>
+            Disconnect
+          </button>
+        </PopoverContent>
+      </Popover>
     );
   }
 

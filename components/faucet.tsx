@@ -4,9 +4,13 @@ import { BridgingProgress } from "./bridging-progress";
 import { Logo } from "./logo";
 import { ConnectWalletButton } from "./connect-wallet-button";
 import { MetamaskButton } from "./metamask-button";
-import { useGetXrp } from "@/app/useGetXrp";
-import { usePollDestinationTxStatus } from "../app/usePollDestinationTxStatus";
+import { useGetXrp } from "@/lib/use-get-xrp";
+import { usePollDestinationTxStatus } from "../lib/use-poll-destination-tx-status";
 import type { MetaMaskInpageProvider } from "@metamask/providers";
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "./ui/select";
+import { Input } from "./ui/input";
+import Link from "next/link";
+import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle } from "./ui/alert-dialog";
 
 export type NetworkType = "Devnet" | "Testnet";
 
@@ -27,8 +31,10 @@ const getEthereumProvider = (): MetaMaskInpageProvider | undefined => {
 export function Faucet({ network, setNetwork, evmAddressFromHeader }: FaucetProps): JSX.Element {
   const [evmAddress, setEvmAddress] = useState<string>(evmAddressFromHeader || "");
   const [connectedAddress, setConnectedAddress] = useState<string>("");
-  const [followedTwitter, setFollowedTwitter] = useState<boolean>(false);
-  const [joinedDiscord, setJoinedDiscord] = useState<boolean>(false);
+  const [socialsCompleted, setSocialsCompleted] = useState({
+    twitter: false,
+    discord: false,
+  });
   const [loading, setLoading] = useState<boolean>(false);
   const [txData, setTxData] = useState<{ txHash: string; sourceCloseTimeIso: string } | null>(null);
   const [showMissingRequirementsModal, setShowMissingRequirementsModal] = useState<boolean>(false);
@@ -65,10 +71,10 @@ export function Faucet({ network, setNetwork, evmAddressFromHeader }: FaucetProp
     if (hasMetaMask && ethereum) {
       const handleChainChanged = (...args: unknown[]): void => {
         const [chain] = args;
-        if (typeof chain === 'string') {
+        if (typeof chain === "string") {
           setChainId(chain);
         } else {
-          console.error('Invalid chain ID', chain);
+          console.error("Invalid chain ID", chain);
         }
       };
 
@@ -83,7 +89,7 @@ export function Faucet({ network, setNetwork, evmAddressFromHeader }: FaucetProp
   const isConnected = connectedAddress !== "";
 
   const handleRequestXRP = async (): Promise<void> => {
-    if (!followedTwitter || !joinedDiscord) {
+    if (!socialsCompleted.twitter || !socialsCompleted.discord) {
       setShowMissingRequirementsModal(true);
       return;
     }
@@ -108,9 +114,7 @@ export function Faucet({ network, setNetwork, evmAddressFromHeader }: FaucetProp
   };
 
   function getDesiredChainId(network: NetworkType): string {
-    return network === "Devnet"
-      ? "0x" + Number(1440002).toString(16)
-      : "0x" + Number(1449000).toString(16);
+    return network === "Devnet" ? "0x" + Number(1440002).toString(16) : "0x" + Number(1449000).toString(16);
   }
   const desiredChainId: string = getDesiredChainId(network);
   const isOnDesiredChain: boolean = !!chainId && chainId.toLowerCase() === desiredChainId.toLowerCase();
@@ -124,6 +128,7 @@ export function Faucet({ network, setNetwork, evmAddressFromHeader }: FaucetProp
 
   const TransactionStatusModal = (): JSX.Element | null => {
     if (!txData) return null;
+
     let displayedStatus = "";
     let extraMessage = "";
     switch (status) {
@@ -132,47 +137,57 @@ export function Faucet({ network, setNetwork, evmAddressFromHeader }: FaucetProp
         extraMessage = "Estimated time: ~2 minutes";
         break;
       case "Arrived":
-        displayedStatus = "Completed";
+        displayedStatus = "Done";
+        extraMessage = "Transaction completed successfully!";
         break;
       case "Failed":
       case "Timeout":
         displayedStatus = "Failed";
+        extraMessage = "Transaction failed or timed out. Please try again.";
         break;
       default:
         displayedStatus = status || "Pending";
         break;
     }
-    const isBridging = displayedStatus === "Pending" || displayedStatus === "Bridging";
     const evmTxUrl = destinationTxHash
-      ? (network === "Testnet"
-          ? `https://explorer.testnet.xrplevm.org/tx/${destinationTxHash}`
-          : `https://explorer.xrplevm.org/tx/${destinationTxHash}`)
+      ? network === "Testnet"
+        ? `https://explorer.testnet.xrplevm.org/tx/${destinationTxHash}`
+        : `https://explorer.xrplevm.org/tx/${destinationTxHash}`
       : null;
     const bridgingTimeSec = bridgingTimeMs ? Math.floor(bridgingTimeMs / 1000) : 0;
+
     return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
-        <div className="bg-[#1E1E1E] w-[500px] max-w-[90%] p-6 rounded-xl shadow-xl text-white">
-          <h2 className="text-2xl font-bold mb-6 text-center">Transaction Status</h2>
+      <AlertDialog open={showTxModal} onOpenChange={setShowTxModal}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Transaction Status</AlertDialogTitle>
+          </AlertDialogHeader>
           <div className="space-y-4">
             <div className="flex flex-col gap-1">
               <span className="text-sm text-gray-400">Current Status</span>
-              <span className={`font-medium ${displayedStatus === "Pending" ? "animate-pulse" : ""}`}>
+              <span
+                className={`font-medium ${displayedStatus === "Pending" ? "animate-pulse" : ""} ${
+                  displayedStatus === "Done" ? "text-green-500" : ""
+                }`}
+              >
                 {displayedStatus}
               </span>
-              {extraMessage && <span className="text-sm text-gray-400">{extraMessage}</span>}
             </div>
-            {isBridging && <BridgingProgress />}
-            {displayedStatus === "Completed" && evmTxUrl && (
+            {extraMessage && <span className="text-sm text-gray-400">{extraMessage}</span>}
+
+            {displayedStatus === "Pending" && <BridgingProgress />}
+
+            {displayedStatus === "Done" && evmTxUrl && (
               <div className="flex flex-col gap-1">
                 <span className="text-sm text-gray-400">XRPLEVM Tx Hash</span>
-                <a
+                <Link
                   href={evmTxUrl}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-green-400 underline break-all hover:text-green-300"
                 >
                   {destinationTxHash}
-                </a>
+                </Link>
               </div>
             )}
             {bridgingTimeSec > 0 && (
@@ -181,26 +196,24 @@ export function Faucet({ network, setNetwork, evmAddressFromHeader }: FaucetProp
                 <span className="font-medium">{bridgingTimeSec} sec</span>
               </div>
             )}
+            {displayedStatus === "Done" && (
+              <div className="flex justify-end mt-4">
+                <Button variant="outline" onClick={() => setShowTxModal(false)} className="hover:bg-gray-800">
+                  Close
+                </Button>
+              </div>
+            )}
           </div>
-          <button
-            className="mt-8 w-full py-3 rounded-md bg-green-600 hover:bg-green-500 font-semibold text-white"
-            onClick={() => {
-              setTxData(null);
-              setShowTxModal(false);
-            }}
-          >
-            Done
-          </button>
-        </div>
-      </div>
+        </AlertDialogContent>
+      </AlertDialog>
     );
   };
 
   return (
     <>
-      <section className="flex flex-col items-center justify-center gap-5 px-4 py-8">
-        <div className="mb-8" style={{ transform: "scale(3)", transformOrigin: "center" }}>
-          <Logo />
+      <section className="flex flex-col items-center justify-center gap-4 px-4 py-8">
+        <div className="mb-8">
+          <Logo className="w-56 h-12" />
         </div>
         <div className="mb-4 flex items-center gap-3">
           <ConnectWalletButton
@@ -228,63 +241,60 @@ export function Faucet({ network, setNetwork, evmAddressFromHeader }: FaucetProp
           <label htmlFor="network" className="font-semibold">
             Select Network
           </label>
-          <select
-            id="network"
-            className="border rounded-md px-3 py-2 bg-background text-foreground"
-            value={network}
-            onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
-              setNetwork(e.target.value as NetworkType)
-            }
-          >
-            <option value="Devnet">Devnet</option>
-            <option value="Testnet">Testnet</option>
-          </select>
+
+          <Select value={network} onValueChange={(value: string) => setNetwork(value as NetworkType)}>
+            <SelectTrigger>
+              <SelectValue placeholder="Select Network" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="Devnet">Devnet</SelectItem>
+              <SelectItem value="Testnet">Testnet</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
         <div className="flex flex-col items-center gap-1">
           <label htmlFor="evmAddress" className="font-semibold">
             Your Address
           </label>
-          <input
+          <Input
             id="evmAddress"
             type="text"
             value={evmAddress}
             onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEvmAddress(e.target.value)}
             placeholder="0x5l8r9m..."
             disabled={isConnected}
-            className={`rounded-md px-3 py-2 w-[459px] ${
+            className={`rounded-md px-3 py-2 w-[300px] md:w-[459px] ${
               isConnected
                 ? "border border-white/30 bg-[#2E2E2E] text-gray-200 cursor-not-allowed"
                 : "border border-white/20 bg-background text-foreground focus:placeholder-transparent"
             }`}
           />
         </div>
-        <p className="text-center font-medium mt-4">
-          Before requesting, please complete the following:
-        </p>
+        <p className="text-center font-medium mt-4">Before requesting, please complete the following:</p>
         <ul className="flex flex-col items-center gap-2 text-center">
           <li>
-            <a
+            <Link
               href="https://x.com/Peersyst"
               target="_blank"
               rel="noopener noreferrer"
-              onClick={() => setFollowedTwitter(true)}
+              onClick={() => setSocialsCompleted({ ...socialsCompleted, twitter: true })}
               className="underline text-blue-400 hover:text-blue-300"
             >
               Follow @Peersyst on 𝕏
-            </a>{" "}
-            {followedTwitter && "✓"}
+            </Link>{" "}
+            {socialsCompleted.twitter && "✅"}
           </li>
           <li>
-            <a
+            <Link
               href="https://discord.com/invite/xrplevm"
               target="_blank"
               rel="noopener noreferrer"
-              onClick={() => setJoinedDiscord(true)}
+              onClick={() => setSocialsCompleted({ ...socialsCompleted, discord: true })}
               className="underline text-blue-400 hover:text-blue-300"
             >
               Join our Discord
-            </a>{" "}
-            {joinedDiscord && "✓"}
+            </Link>{" "}
+            {socialsCompleted.discord && "✅"}
           </li>
         </ul>
         <Button
@@ -292,22 +302,20 @@ export function Faucet({ network, setNetwork, evmAddressFromHeader }: FaucetProp
           size="lg"
           className="mt-4"
           onClick={handleRequestXRP}
-          disabled={loading}
+          disabled={!socialsCompleted.twitter || !socialsCompleted.discord || loading}
         >
           {loading ? `Waiting ~...` : "Request 90 XRP"}
         </Button>
       </section>
 
       {/* Transaction Status Modal */}
-      {showTxModal && txData && <TransactionStatusModal />}
+      {<TransactionStatusModal />}
 
       {showMissingRequirementsModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
           <div className="bg-[#1E1E1E] w-[500px] max-w-[90%] p-6 rounded-xl shadow-xl text-white">
             <h2 className="text-2xl font-bold mb-6 text-center">Almost there!</h2>
-            <p className="mb-4 text-center">
-              Please make sure you follow us on 𝕏 and join our Discord 👾 before requesting test XRP.
-            </p>
+            <p className="mb-4 text-center">Please make sure you follow us on 𝕏 and join our Discord 👾 before requesting test XRP.</p>
             <button
               className="mt-4 w-full py-3 rounded-md bg-green-600 hover:bg-green-500 font-semibold text-white"
               onClick={() => setShowMissingRequirementsModal(false)}
@@ -318,15 +326,12 @@ export function Faucet({ network, setNetwork, evmAddressFromHeader }: FaucetProp
         </div>
       )}
 
-
       {/* NEW: Invalid Address Modal */}
       {showInvalidAddressModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
           <div className="bg-[#1E1E1E] w-[400px] max-w-[70%] p-6 rounded-xl shadow-xl text-white">
             <h2 className="text-2xl font-bold mb-6 text-center">Invalid EVM Address</h2>
-            <p className="mb-4">
-              Please enter a valid EVM address (starting with 0x).
-            </p>
+            <p className="mb-4">Please enter a valid EVM address (starting with 0x).</p>
             <button
               className="mt-4 w-full py-3 rounded-md bg-green-600 hover:bg-green-500 font-semibold text-white"
               onClick={() => setShowInvalidAddressModal(false)}

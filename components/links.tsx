@@ -49,11 +49,6 @@ export const ecosystemLinks: ExternalLinkProps[] = [
     external: true,
   },
   {
-    label: "Gnosis Safe",
-    href: "https://safe.xrplevm.org/welcome",
-    external: true,
-  },
-  {
     label: "Wallets",
     href: "https://metamask.io/download",
     external: true,

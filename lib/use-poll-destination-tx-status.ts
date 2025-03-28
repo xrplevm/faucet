@@ -1,17 +1,16 @@
-// hooks/usePollDestinationTxStatus.ts
 import { useState, useEffect } from "react";
 import axios from "axios";
 
 // Define a type for a token transfer item:
 interface TokenTransferItem {
-    to: { hash: string };
-    total: { value: string; decimals: string | number };
-    timestamp: string;
-    transaction_hash: string;
-}  
+  to: { hash: string };
+  total: { value: string; decimals: string | number };
+  timestamp: string;
+  transaction_hash: string;
+}
 
 const DEST_POLL_INTERVAL = 5000; // 5 seconds
-const MAX_POLL_ATTEMPTS = 300;   // maximum attempts
+const MAX_POLL_ATTEMPTS = 300; // maximum attempts
 
 /**
  * Custom hook that polls the destination chain for the faucet transaction.
@@ -56,7 +55,8 @@ export function usePollDestinationTxStatus(
           explorerBaseUrl = "https://explorer.testnet.xrplevm.org/api/v2/addresses";
           tokenAddress = "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE";
         }
-        const url = `${explorerBaseUrl}/${destinationAddress}/token-transfers` +
+        const url =
+          `${explorerBaseUrl}/${destinationAddress}/token-transfers` +
           `?type=ERC-20` +
           `&filter=${destinationAddress}%20|%200x0000000000000000000000000000000000000000` +
           `&token=${tokenAddress}`;
@@ -67,10 +67,14 @@ export function usePollDestinationTxStatus(
           const resp = await axios.get(url);
           items = resp.data.items as TokenTransferItem[];
         } catch (error) {
-          if (axios.isAxiosError(error) && error.response?.status === 404) {
-            console.log("[usePollDestinationTxStatus] No token transfers found yet.");
+          if (axios.isAxiosError(error)) {
+            if (error.response?.status === 404) {
+              // No transfers found yet, continue polling
+            } else {
+              setStatus("Failed");
+            }
           } else {
-            console.error("Error fetching transfers:", error);
+            setStatus("Failed");
           }
         }
 
@@ -83,12 +87,15 @@ export function usePollDestinationTxStatus(
           const rawValueStr = item?.total?.value ?? "0";
           const decimals = parseInt(item?.total?.decimals.toString() ?? "18", 10);
           const floatVal = parseFloat(rawValueStr) / 10 ** decimals;
-          if (Math.abs(floatVal - faucetAmount) > 1e-9) continue;
+
+          // Allow for a small difference in amount due to fees (within 1 XRP)
+          if (Math.abs(floatVal - faucetAmount) > 1) continue;
 
           // Compare timestamps (only consider transfers after XRPL close time)
           const evmTimestampIso = item.timestamp;
           const evmTimeMs = new Date(evmTimestampIso).getTime();
           const sourceTimeMs = new Date(sourceCloseTimeIso).getTime();
+
           if (evmTimeMs <= sourceTimeMs) continue;
 
           // Match found!
@@ -98,8 +105,8 @@ export function usePollDestinationTxStatus(
           setBridgingTimeMs(bridgingTime);
           return;
         }
-      } catch (err) {
-        console.error("Polling error:", err);
+      } catch {
+        setStatus("Failed");
       }
 
       if (attempts >= MAX_POLL_ATTEMPTS) {

@@ -94,46 +94,28 @@ const FACTS = [
   "The XRPLEVM Services Status page offers real-time monitoring of network health, including uptime and service disruptions.",
   "XRPL EVM documentation provides comprehensive guides and API references to assist new and experienced developers in building applications.",
   "The XRPL docs serve as a foundational resource for understanding the core functionalities of the XRPL blockchain and its features.",
-  "Axelar JS SDK documentation provides developers with tools and libraries for facilitating cross-chain interactions using Axelar infrastructure."
-  
+  "Axelar JS SDK documentation provides developers with tools and libraries for facilitating cross-chain interactions using Axelar infrastructure.",
 ];
 
 export function BridgingProgress({ className }: { className?: string }) {
-  const [showFact, setShowFact] = useState(false);
   const [currentFact, setCurrentFact] = useState<string>("");
 
   useEffect(() => {
     const toggleInterval = setInterval(() => {
-      setShowFact((prev) => !prev); // Toggle between progress and fact
-      if (!showFact) {
-        const randomIndex = Math.floor(Math.random() * FACTS.length);
-        setCurrentFact(FACTS[randomIndex]);
-      }
-    }, 10_000); // Switch every 10 seconds
+      const randomIndex = Math.floor(Math.random() * FACTS.length);
+      setCurrentFact(FACTS[randomIndex]);
+    }, 8_000); // Switch every 8 seconds
 
     return () => clearInterval(toggleInterval);
-  }, [showFact]);
+  }, []);
 
   return (
-    <div
-      className={cn(
-        "flex items-center justify-center flex-col gap-2 mt-4 min-h-[40px]",
-        className
-      )}
-    >
-      {!showFact ? (
-        <div className="flex items-center gap-2 animate-pulse">
-          <Loader2 className="w-4 h-4 animate-spin text-green-500" />
-          <span className="text-sm text-muted-foreground">
-            Bridging in progress...
-          </span>
-        </div>
-      ) : (
-        <div className="text-center text-sm text-muted-foreground animate-pulse italic max-w-[90%]">
-          {currentFact}
-        </div>
-      )}
+    <div className={cn("flex items-center justify-center flex-col gap-2 mt-4 min-h-[40px]", className)}>
+      <div className="flex items-center gap-2 animate-pulse">
+        <Loader2 className="w-4 h-4 animate-spin text-green-500" />
+        <span className="text-sm text-muted-foreground">Bridging in progress...</span>
+      </div>
+      <div className="text-center text-sm text-muted-foreground animate-pulse italic max-w-[90%]">{currentFact}</div>
     </div>
   );
 }
-

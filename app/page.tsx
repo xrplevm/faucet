@@ -22,10 +22,8 @@ export default function Home() {
     return (
       <main className="flex flex-col min-h-screen w-full">
         {/* Basic placeholder or nothing */}
-        <div className="flex-grow flex items-center justify-center">
-          {/* Or a spinner if you like */}
-        </div>
-        <Footer network={network} />
+        <div className="flex-grow flex items-center justify-center">{/* Or a spinner if you like */}</div>
+        {/* <Footer /> */}
       </main>
     );
   }
@@ -33,10 +31,10 @@ export default function Home() {
   // Once mounted, do your normal rendering
   return (
     <main className="flex flex-col min-h-screen w-full">
-      <div className="flex-grow flex items-center justify-center my-37">
+      <div className="flex items-center justify-center my-10 md:my-37">
         <Faucet network={network} setNetwork={setNetwork} />
       </div>
-      <Footer network={network} />
+      <Footer />
     </main>
   );
 }
