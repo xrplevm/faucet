@@ -39,13 +39,9 @@ export function Faucet({ network, setNetwork, evmAddressFromHeader }: FaucetProp
   const [txData, setTxData] = useState<{ txHash: string; sourceCloseTimeIso: string } | null>(null);
   const [showMissingRequirementsModal, setShowMissingRequirementsModal] = useState<boolean>(false);
   const [showTxModal, setShowTxModal] = useState<boolean>(false);
-
-  // NEW: Track invalid address modal visibility
   const [showInvalidAddressModal, setShowInvalidAddressModal] = useState<boolean>(false);
-
   const [chainId, setChainId] = useState<string | null>(null);
 
-  // Obtain the provider (if present) and then determine if MetaMask exists.
   const ethereum = getEthereumProvider();
   const hasMetaMask: boolean = Boolean(ethereum);
 
@@ -93,7 +89,6 @@ export function Faucet({ network, setNetwork, evmAddressFromHeader }: FaucetProp
       setShowMissingRequirementsModal(true);
       return;
     }
-    // Replace alert with modal trigger:
     if (!evmAddress.startsWith("0x") || evmAddress.length < 10) {
       setShowInvalidAddressModal(true);
       return;
@@ -215,7 +210,7 @@ export function Faucet({ network, setNetwork, evmAddressFromHeader }: FaucetProp
         <div className="mb-8">
           <Logo className="w-56 h-12" />
         </div>
-        <div className="mb-4 flex items-center gap-3">
+        <div className="flex flex-col items-center gap-3 mb-4 md:flex-row md:justify-center">
           <ConnectWalletButton
             onConnected={(addr: string) => {
               setConnectedAddress(addr);
@@ -302,7 +297,7 @@ export function Faucet({ network, setNetwork, evmAddressFromHeader }: FaucetProp
           size="lg"
           className="mt-4"
           onClick={handleRequestXRP}
-          disabled={!socialsCompleted.twitter || !socialsCompleted.discord || loading}
+          disabled={!!txData || loading}
         >
           {loading ? `Waiting ~...` : "Request 90 XRP"}
         </Button>
@@ -311,35 +306,42 @@ export function Faucet({ network, setNetwork, evmAddressFromHeader }: FaucetProp
       {/* Transaction Status Modal */}
       {<TransactionStatusModal />}
 
+      {/* Missing Requirements Modal */}
       {showMissingRequirementsModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
-          <div className="bg-[#1E1E1E] w-[500px] max-w-[90%] p-6 rounded-xl shadow-xl text-white">
-            <h2 className="text-2xl font-bold mb-6 text-center">Almost there!</h2>
-            <p className="mb-4 text-center">Please make sure you follow us on 𝕏 and join our Discord 👾 before requesting test XRP.</p>
-            <button
-              className="mt-4 w-full py-3 rounded-md bg-green-600 hover:bg-green-500 font-semibold text-white"
-              onClick={() => setShowMissingRequirementsModal(false)}
-            >
-              Close
-            </button>
-          </div>
-        </div>
+        <AlertDialog open={showMissingRequirementsModal} onOpenChange={setShowMissingRequirementsModal}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Almost there!</AlertDialogTitle>
+            </AlertDialogHeader>
+            <p className="mb-4 text-center">
+              Please make sure you follow us on 𝕏 and join our Discord 👾 before requesting test XRP.
+            </p>
+            <div className="flex justify-end mt-4">
+              <Button variant="outline" onClick={() => setShowMissingRequirementsModal(false)}>
+                Close
+              </Button>
+            </div>
+          </AlertDialogContent>
+        </AlertDialog>
       )}
 
-      {/* NEW: Invalid Address Modal */}
+      {/* Invalid Address Modal */}
       {showInvalidAddressModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
-          <div className="bg-[#1E1E1E] w-[400px] max-w-[70%] p-6 rounded-xl shadow-xl text-white">
-            <h2 className="text-2xl font-bold mb-6 text-center">Invalid EVM Address</h2>
-            <p className="mb-4">Please enter a valid EVM address (starting with 0x).</p>
-            <button
-              className="mt-4 w-full py-3 rounded-md bg-green-600 hover:bg-green-500 font-semibold text-white"
-              onClick={() => setShowInvalidAddressModal(false)}
-            >
-              Close
-            </button>
-          </div>
-        </div>
+        <AlertDialog open={showInvalidAddressModal} onOpenChange={setShowInvalidAddressModal}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Invalid EVM Address</AlertDialogTitle>
+            </AlertDialogHeader>
+            <p className="mb-4">
+              Please enter a valid EVM address (starting with 0x).
+            </p>
+            <div className="flex justify-end mt-4">
+              <Button variant="outline" onClick={() => setShowInvalidAddressModal(false)}>
+                Close
+              </Button>
+            </div>
+          </AlertDialogContent>
+        </AlertDialog>
       )}
     </>
   );
