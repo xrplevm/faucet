@@ -18,7 +18,6 @@ function FooterSocial({ icon, href }: FooterSocialProps) {
       rel="noopener noreferrer"
       className="border rounded-[8px] p-3 hover:bg-white/10 transition-all duration-300 group"
     >
-      {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src={icon}
         alt={href}
