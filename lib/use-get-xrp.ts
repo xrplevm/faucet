@@ -73,7 +73,7 @@ const prepareBridgeTransaction = (originAddress: string, destinationNetwork: Net
     },
     {
       Memo: {
-        MemoData: Buffer.from("1000000").toString("hex").toUpperCase(),
+        MemoData: Buffer.from("1700000").toString("hex").toUpperCase(),
         MemoType: Buffer.from("gas_fee_amount").toString("hex").toUpperCase(),
       },
     },
