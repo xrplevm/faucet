@@ -39,7 +39,7 @@ export function usePollDestinationTxStatus(
     if (!destinationAddress || !sourceCloseTimeIso || !txHash) return;
 
     let attempts = 0;
-    const faucetAmount = 90.00589; // expected faucet amount
+    const faucetAmount = 89.50589; // expected faucet amount
 
     const poll = async () => {
       attempts++;
@@ -88,8 +88,8 @@ export function usePollDestinationTxStatus(
           const decimals = parseInt(item?.total?.decimals.toString() ?? "18", 10);
           const floatVal = parseFloat(rawValueStr) / 10 ** decimals;
 
-          // Allow for a small difference in amount due to fees (within 1 XRP)
-          if (Math.abs(floatVal - faucetAmount) > 1) continue;
+          // Allow for a small difference in amount due to fees (within 3 XRP)
+          if (Math.abs(floatVal - faucetAmount) > 3) continue;
 
           // Compare timestamps (only consider transfers after XRPL close time)
           const evmTimestampIso = item.timestamp;
