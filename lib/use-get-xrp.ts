@@ -15,8 +15,8 @@ const networks = {
   },
 };
 
-const reserve = 9.79411;
-const transferFee = 0.2;
+const reserve = 7.09411;
+const transferFee = 1.7;
 
 export type Network = "devnet" | "testnet";
 
@@ -32,7 +32,7 @@ export const useGetXrp = (network: Network) => {
 
     const json = await resp.json();
 
-    await new Promise((res) => setTimeout(res, 5000));
+    await new Promise((res) => setTimeout(res, 1000));
 
     const amount = json.amount - reserve - transferFee;
 

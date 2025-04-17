@@ -143,7 +143,7 @@ export function ConnectWalletButton({ className, onConnected, onDisconnected }: 
           });
           console.log("Current wallet permissions:", permissions);
           alert(
-            "MetaMask Mobile does not support automatic disconnect. Please open MetaMask, go to 'Settings' > 'Connected Sites' and remove this site to fully disconnect."
+            "MetaMask Mobile does not support automatic disconnect. Manage permissions on the top right corner and click on 'disconnect all' to fully disconnect."
           );
         } catch (err) {
           console.warn("Error getting wallet permissions on mobile:", err);
