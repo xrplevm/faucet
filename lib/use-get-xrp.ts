@@ -36,9 +36,16 @@ export const useGetXrp = (network: Network) => {
 
     const amount = json.amount - reserve - transferFee;
 
-    const tx = prepareBridgeTransaction(wallet.address, network, destination, amount);
+    const tx = prepareBridgeTransaction(
+      wallet.address,
+      network,
+      destination,
+      amount
+    );
 
-    const client = new Client(networks[network].wsUrl);
+    const client = new Client(networks[network].wsUrl, {
+      connectionTimeout: 30000,
+    });
     await client.connect();
 
     const prepared = await client.autofill(tx);
@@ -51,24 +58,39 @@ export const useGetXrp = (network: Network) => {
   };
 };
 
-const prepareBridgeTransaction = (originAddress: string, destinationNetwork: Network, destinationAddress: string, amount: number) => {
+const prepareBridgeTransaction = (
+  originAddress: string,
+  destinationNetwork: Network,
+  destinationAddress: string,
+  amount: number
+) => {
   const memos = [
     {
       Memo: {
-        MemoData: Buffer.from("interchain_transfer").toString("hex").toUpperCase(),
+        MemoData: Buffer.from("interchain_transfer")
+          .toString("hex")
+          .toUpperCase(),
         MemoType: Buffer.from("type").toString("hex").toUpperCase(),
       },
     },
     {
       Memo: {
-        MemoData: Buffer.from(destinationAddress.slice(2)).toString("hex").toUpperCase(),
-        MemoType: Buffer.from("destination_address").toString("hex").toUpperCase(),
+        MemoData: Buffer.from(destinationAddress.slice(2))
+          .toString("hex")
+          .toUpperCase(),
+        MemoType: Buffer.from("destination_address")
+          .toString("hex")
+          .toUpperCase(),
       },
     },
     {
       Memo: {
-        MemoData: Buffer.from(networks[destinationNetwork].bridgeNetwork).toString("hex").toUpperCase(),
-        MemoType: Buffer.from("destination_chain").toString("hex").toUpperCase(),
+        MemoData: Buffer.from(networks[destinationNetwork].bridgeNetwork)
+          .toString("hex")
+          .toUpperCase(),
+        MemoType: Buffer.from("destination_chain")
+          .toString("hex")
+          .toUpperCase(),
       },
     },
     {
