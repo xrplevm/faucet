@@ -11,6 +11,7 @@ import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from ".
 import { Input } from "./ui/input";
 import Link from "next/link";
 import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle } from "./ui/alert-dialog";
+import ReCAPTCHA from "react-google-recaptcha";
 
 export type NetworkType = "Devnet" | "Testnet";
 
@@ -40,6 +41,7 @@ export function Faucet({ network, setNetwork, evmAddressFromHeader }: FaucetProp
   const [showMissingRequirementsModal, setShowMissingRequirementsModal] = useState<boolean>(false);
   const [showTxModal, setShowTxModal] = useState<boolean>(false);
   const [showInvalidAddressModal, setShowInvalidAddressModal] = useState<boolean>(false);
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
   const [chainId, setChainId] = useState<string | null>(null);
 
   const ethereum = getEthereumProvider();
@@ -94,8 +96,21 @@ export function Faucet({ network, setNetwork, evmAddressFromHeader }: FaucetProp
       return;
     }
 
+    if (!captchaToken) {
+      alert("Please complete the CAPTCHA");
+      return;
+    }
     setLoading(true);
     try {
+      const recaptchaResponse = await fetch('/api/recaptcha', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: captchaToken }),
+      });
+      const recaptchaResult = await recaptchaResponse.json();
+      if (!recaptchaResponse.ok || !recaptchaResult.success) {
+        throw new Error(recaptchaResult.error || 'CAPTCHA verification failed');
+      }
       const txHash = await getXrp(evmAddress);
       const closeTimeIso = new Date().toISOString();
       setTxData({ txHash, sourceCloseTimeIso: closeTimeIso });
@@ -292,6 +307,12 @@ export function Faucet({ network, setNetwork, evmAddressFromHeader }: FaucetProp
             {socialsCompleted.discord && "✅"}
           </li>
         </ul>
+        <div className="mt-4">
+          <ReCAPTCHA
+            sitekey={process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY!}
+            onChange={(token) => setCaptchaToken(token)}
+          />
+        </div>
         <Button
           variant="default"
           size="lg"
