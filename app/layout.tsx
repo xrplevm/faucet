@@ -32,6 +32,7 @@ export const metadata: Metadata = {
     url: "https://xrplevm.org",
     type: "website",
   },
+  referrer: "no-referrer",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
