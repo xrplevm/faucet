@@ -35,8 +35,9 @@ export const useGetXrp = (network: Network) => {
     await new Promise((res) => setTimeout(res, 1000));
 
     const amount = json.amount - reserve - transferFee;
+    const roundedAmount = Math.round(amount * 1e6) / 1e6;
 
-    const tx = prepareBridgeTransaction(wallet.address, network, destination, amount);
+    const tx = prepareBridgeTransaction(wallet.address, network, destination, roundedAmount);
 
     const client = new Client(networks[network].wsUrl);
     await client.connect();
