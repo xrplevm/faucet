@@ -16,7 +16,6 @@ const networks = {
 };
 
 const reserve = 1;
-const transferFee = 1.7;
 
 export type Network = "devnet" | "testnet";
 
@@ -34,7 +33,7 @@ export const useGetXrp = (network: Network) => {
 
     await new Promise((res) => setTimeout(res, 1000));
 
-    const amount = json.amount - reserve - transferFee;
+    const amount = json.amount - reserve;
     const roundedAmount = Math.round(amount * 1e6) / 1e6;
 
     const tx = prepareBridgeTransaction(wallet.address, network, destination, roundedAmount);

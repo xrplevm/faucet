@@ -39,7 +39,7 @@ export function usePollDestinationTxStatus(
     if (!destinationAddress || !sourceCloseTimeIso || !txHash) return;
 
     let attempts = 0;
-    const faucetAmount = 89.50589; // expected faucet amount
+    const faucetAmount = 7.3; // expected faucet amount
 
     const poll = async () => {
       attempts++;
