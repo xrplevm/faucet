@@ -15,7 +15,7 @@ const networks = {
   },
 };
 
-const reserve = 7.09411;
+const reserve = 1;
 const transferFee = 1.7;
 
 export type Network = "devnet" | "testnet";
