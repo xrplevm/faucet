@@ -299,7 +299,7 @@ export function Faucet({ network, setNetwork, evmAddressFromHeader }: FaucetProp
           onClick={handleRequestXRP}
           disabled={!!txData || loading}
         >
-          {loading ? `Waiting ~...` : "Request 90 XRP"}
+          {loading ? `Waiting ~...` : "Request 7 XRP"}
         </Button>
       </section>
 
