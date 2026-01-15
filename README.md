@@ -14,6 +14,15 @@ pnpm dev
 bun dev
 ```
 
+### Environment Variables
+
+Create a `.env.local` file in the project root with the following variables:
+
+```bash
+NEXT_PUBLIC_RECAPTCHA_SITE_KEY=your_site_key_here
+RECAPTCHA_SECRET_KEY=your_secret_key_here
+```
+
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
