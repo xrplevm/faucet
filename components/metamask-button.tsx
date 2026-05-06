@@ -29,9 +29,26 @@ const TESTNET_CONFIG = {
   blockExplorerUrls: ["https://explorer.testnet.xrplevm.org"],
 };
 
-type NetworkType = "Testnet";
+const DEVNET_CONFIG = {
+  chainId: "0x" + Number(1449900).toString(16),
+  chainName: "XRPL EVM Sidechain Devnet",
+  nativeCurrency: {
+    name: "XRP",
+    symbol: "XRP",
+    decimals: 18,
+  },
+  rpcUrls: ["https://rpc.devnet.xrplevm.org/"],
+  blockExplorerUrls: ["https://explorer.devnet.xrplevm.org"],
+};
 
-/** 
+type NetworkType = "Testnet" | "Devnet";
+
+const NETWORK_CONFIGS: Record<NetworkType, typeof TESTNET_CONFIG> = {
+  Testnet: TESTNET_CONFIG,
+  Devnet: DEVNET_CONFIG,
+};
+
+/**
  * ✅ Common logic for requesting a network add/switch in MetaMask
  * If MetaMask not installed, redirects to installation page.
  */
@@ -41,7 +58,7 @@ async function addNetworkToMetamask(network: NetworkType) {
     return;
   }
 
-  const selectedConfig = TESTNET_CONFIG;
+  const selectedConfig = NETWORK_CONFIGS[network];
 
   try {
     await window.ethereum.request({

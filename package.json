@@ -24,6 +24,7 @@
     "react-dom": "19.2.3",
     "tailwind-merge": "3.4.0",
     "tailwindcss-animate": "1.0.7",
+    "viem": "^2.48.8",
     "xrpl": "4.5.0"
   },
   "devDependencies": {

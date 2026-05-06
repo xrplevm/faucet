@@ -5,14 +5,31 @@ import { Logo } from "./logo";
 import { ConnectWalletButton } from "./connect-wallet-button";
 import { MetamaskButton } from "./metamask-button";
 import { useGetXrp } from "@/lib/use-get-xrp";
+import { useMintXrp } from "@/lib/use-mint-xrp";
 import { usePollDestinationTxStatus } from "../lib/use-poll-destination-tx-status";
+import { usePollDevnetTxStatus } from "@/lib/use-poll-devnet-tx-status";
 import type { MetaMaskInpageProvider } from "@metamask/providers";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "./ui/select";
 import { Input } from "./ui/input";
 import Link from "next/link";
 import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle } from "./ui/alert-dialog";
 
-export type NetworkType = "Testnet";
+export type NetworkType = "Testnet" | "Devnet";
+
+const FAUCET_AMOUNTS: Record<NetworkType, number> = {
+  Testnet: 97,
+  Devnet: 100,
+};
+
+const CHAIN_IDS: Record<NetworkType, number> = {
+  Testnet: 1449000,
+  Devnet: 1449900,
+};
+
+const EXPLORER_BASES: Record<NetworkType, string> = {
+  Testnet: "https://explorer.testnet.xrplevm.org",
+  Devnet: "https://explorer.devnet.xrplevm.org",
+};
 
 interface FaucetProps {
   network: NetworkType;
@@ -41,11 +58,17 @@ export function Faucet({ network, setNetwork, evmAddressFromHeader }: FaucetProp
   const [showTxModal, setShowTxModal] = useState<boolean>(false);
   const [showInvalidAddressModal, setShowInvalidAddressModal] = useState<boolean>(false);
   const [chainId, setChainId] = useState<string | null>(null);
+  // Pre-submit failure state (e.g. mint API call rejected before producing a hash).
+  // Once `devnetTxHash` is set, the polling hook becomes the source of truth.
+  const [devnetSubmitError, setDevnetSubmitError] = useState<boolean>(false);
+  const [devnetTxHash, setDevnetTxHash] = useState<string | null>(null);
 
   const ethereum = getEthereumProvider();
   const hasMetaMask: boolean = Boolean(ethereum);
 
-  const getXrp = useGetXrp(network.toLowerCase() as "testnet");
+  const getXrp = useGetXrp("testnet");
+  const mintXrp = useMintXrp();
+  const { status: devnetPollStatus } = usePollDevnetTxStatus(devnetTxHash ?? "");
 
   useEffect(() => {
     setEvmAddress(evmAddressFromHeader || "");
@@ -95,6 +118,24 @@ export function Faucet({ network, setNetwork, evmAddressFromHeader }: FaucetProp
     }
 
     setLoading(true);
+    if (network === "Devnet") {
+      setDevnetSubmitError(false);
+      setDevnetTxHash(null);
+      setTxData({ txHash: "", sourceCloseTimeIso: "" });
+      setShowTxModal(true);
+      try {
+        const hash = await mintXrp(evmAddress);
+        setDevnetTxHash(hash); // hands off to usePollDevnetTxStatus
+      } catch (error: unknown) {
+        console.error("Error minting devnet XRP:", error);
+        setDevnetSubmitError(true);
+        alert("Error minting devnet XRP: " + (error instanceof Error ? error.message : String(error)));
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
+
     try {
       const txHash = await getXrp(evmAddress);
       const closeTimeIso = new Date().toISOString();
@@ -109,7 +150,7 @@ export function Faucet({ network, setNetwork, evmAddressFromHeader }: FaucetProp
   };
 
   function getDesiredChainId(network: NetworkType): string {
-    return "0x" + Number(1449000).toString(16);
+    return "0x" + CHAIN_IDS[network].toString(16);
   }
   const desiredChainId: string = getDesiredChainId(network);
   const isOnDesiredChain: boolean = !!chainId && chainId.toLowerCase() === desiredChainId.toLowerCase();
@@ -124,12 +165,20 @@ export function Faucet({ network, setNetwork, evmAddressFromHeader }: FaucetProp
   const TransactionStatusModal = (): JSX.Element | null => {
     if (!txData) return null;
 
+    const isDevnet = network === "Devnet";
+    const effectiveStatus = isDevnet
+      ? devnetSubmitError
+        ? "Failed"
+        : devnetPollStatus
+      : status;
+    const effectiveTxHash = isDevnet ? devnetTxHash : destinationTxHash;
+
     let displayedStatus = "";
     let extraMessage = "";
-    switch (status) {
+    switch (effectiveStatus) {
       case "Pending":
         displayedStatus = "Pending";
-        extraMessage = "Estimated time: ~2 minutes";
+        extraMessage = isDevnet ? "Minting…" : "Estimated time: ~2 minutes";
         break;
       case "Arrived":
         displayedStatus = "Done";
@@ -141,18 +190,29 @@ export function Faucet({ network, setNetwork, evmAddressFromHeader }: FaucetProp
         extraMessage = "Transaction failed or timed out. Please try again.";
         break;
       default:
-        displayedStatus = status || "Pending";
+        displayedStatus = effectiveStatus || "Pending";
         break;
     }
-    const evmTxUrl = destinationTxHash
-      ? network === "Testnet"
-        ? `https://explorer.testnet.xrplevm.org/tx/${destinationTxHash}`
-        : `https://explorer.xrplevm.org/tx/${destinationTxHash}`
-      : null;
-    const bridgingTimeSec = bridgingTimeMs ? Math.floor(bridgingTimeMs / 1000) : 0;
+    const evmTxUrl = effectiveTxHash ? `${EXPLORER_BASES[network]}/tx/${effectiveTxHash}` : null;
+    const bridgingTimeSec = !isDevnet && bridgingTimeMs ? Math.floor(bridgingTimeMs / 1000) : 0;
 
     return (
-      <AlertDialog open={showTxModal} onOpenChange={setShowTxModal}>
+      <AlertDialog
+        open={showTxModal}
+        onOpenChange={(open) => {
+          setShowTxModal(open);
+          // Devnet has no rate-limit: let the user request again after closing a terminal-state modal.
+          const terminal =
+            effectiveStatus === "Arrived" ||
+            effectiveStatus === "Failed" ||
+            effectiveStatus === "Timeout";
+          if (!open && isDevnet && terminal) {
+            setTxData(null);
+            setDevnetTxHash(null);
+            setDevnetSubmitError(false);
+          }
+        }}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Transaction Status</AlertDialogTitle>
@@ -170,7 +230,7 @@ export function Faucet({ network, setNetwork, evmAddressFromHeader }: FaucetProp
             </div>
             {extraMessage && <span className="text-sm text-gray-400">{extraMessage}</span>}
 
-            {displayedStatus === "Pending" && <BridgingProgress />}
+            {displayedStatus === "Pending" && !isDevnet && <BridgingProgress />}
 
             {displayedStatus === "Done" && evmTxUrl && (
               <div className="flex flex-col gap-1">
@@ -181,7 +241,7 @@ export function Faucet({ network, setNetwork, evmAddressFromHeader }: FaucetProp
                   rel="noopener noreferrer"
                   className="text-green-400 underline break-all hover:text-green-300"
                 >
-                  {destinationTxHash}
+                  {effectiveTxHash}
                 </Link>
               </div>
             )}
@@ -231,6 +291,21 @@ export function Faucet({ network, setNetwork, evmAddressFromHeader }: FaucetProp
           ) : (
             <MetamaskButton className="h-10" network={network} />
           )}
+        </div>
+
+        <div className="flex flex-col items-center gap-1">
+          <label htmlFor="network" className="font-semibold">
+            Network
+          </label>
+          <Select value={network} onValueChange={(v) => setNetwork(v as NetworkType)}>
+            <SelectTrigger id="network" className="w-[300px] md:w-[459px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="Testnet">Testnet</SelectItem>
+              <SelectItem value="Devnet">Devnet</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
 
         <div className="flex flex-col items-center gap-1">
@@ -285,7 +360,7 @@ export function Faucet({ network, setNetwork, evmAddressFromHeader }: FaucetProp
           onClick={handleRequestXRP}
           disabled={!!txData || loading}
         >
-          {loading ? `Waiting ~...` : "Request 97 XRP"}
+          {loading ? `Waiting ~...` : `Request ${FAUCET_AMOUNTS[network]} XRP`}
         </Button>
       </section>
 

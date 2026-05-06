@@ -5,7 +5,7 @@ import { Faucet } from "@/components/faucet";
 import { Footer } from "@/components/footer";
 
 export default function Home() {
-  const [network, setNetwork] = useState<"Testnet">("Testnet");
+  const [network, setNetwork] = useState<"Testnet" | "Devnet">("Testnet");
 
   // We’ll track if we are mounted so SSR doesn’t mismatch client logic
   const [isMounted, setIsMounted] = useState(false);
