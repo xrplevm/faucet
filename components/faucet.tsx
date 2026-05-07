@@ -82,6 +82,33 @@ const getEthereumProvider = (): MetaMaskInpageProvider | undefined => {
   return undefined;
 };
 
+function DiagonalGrid({ side }: { side: "left" | "right" }) {
+  const lines = Array.from({ length: 36 });
+  const driftClass = side === "left" ? "animate-grid-drift-left" : "animate-grid-drift-right";
+  const colorClass = side === "left" ? "bg-violet-500" : "bg-emerald-400";
+  const positionClass = side === "left" ? "-left-40" : "-right-40";
+  // Radial mask so the panel feathers into the background instead of clipping at a square edge.
+  const maskOrigin = side === "left" ? "top left" : "top right";
+  const fadeMask = `radial-gradient(120% 120% at ${maskOrigin}, black 0%, black 30%, transparent 78%)`;
+  return (
+    <div
+      className={`pointer-events-none absolute -top-12 ${positionClass} h-[720px] w-[720px] overflow-hidden opacity-70`}
+      style={{ WebkitMaskImage: fadeMask, maskImage: fadeMask }}
+      aria-hidden
+    >
+      <div className={`relative h-full w-full ${driftClass}`}>
+        {lines.map((_, i) => (
+          <span
+            key={i}
+            className={`absolute left-0 h-px w-full animate-grid-line ${colorClass}`}
+            style={{ top: `${i * 14}px`, animationDelay: `${i * 0.06}s` }}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export function Faucet({ network, setNetwork, evmAddressFromHeader }: FaucetProps): JSX.Element {
   const [evmAddress, setEvmAddress] = useState<string>(evmAddressFromHeader || "");
   const [connectedAddress, setConnectedAddress] = useState<string>("");
@@ -197,7 +224,7 @@ export function Faucet({ network, setNetwork, evmAddressFromHeader }: FaucetProp
 
   return (
     <>
-      {/* Aura */}
+      {/* Aura + ambient animations */}
       <div className="pointer-events-none fixed inset-0 overflow-hidden -z-[1]">
         <div
           className="absolute -top-40 left-1/2 -translate-x-1/2 w-[1100px] h-[700px] blur-3xl opacity-80 animate-faucet-aura"
@@ -206,15 +233,21 @@ export function Faucet({ network, setNetwork, evmAddressFromHeader }: FaucetProp
               "radial-gradient(circle at 30% 20%, oklch(0.5 0.3 296.7 / 0.20), transparent 55%), radial-gradient(circle at 80% 80%, oklch(0.7602 0.15 296.58 / 0.12), transparent 55%)",
           }}
         />
+        {/* Floating orbs */}
+        <div className="absolute left-[20%] top-[22%] h-80 w-80 rounded-full blur-3xl bg-violet-600/20 animate-orb-a" />
+        <div className="absolute right-[20%] top-[34%] h-72 w-72 rounded-full blur-3xl bg-emerald-500/10 animate-orb-b" />
+        {/* Diagonal grid panels */}
+        <DiagonalGrid side="left" />
+        <DiagonalGrid side="right" />
       </div>
 
       <main className="relative z-10 mx-auto max-w-5xl px-4 pt-10 md:pt-16 pb-10">
         {/* Header */}
         <header className="flex items-center justify-between mb-10 md:mb-14">
-          <div className="text-white/95">
+          <div className="text-white/95 animate-fade-in-left">
             <Logo className="w-44 h-10" />
           </div>
-          <div className="hidden md:flex items-center gap-3 text-xs text-white/50">
+          <div className="hidden md:flex items-center gap-3 text-xs text-white/50 animate-fade-in-down">
             <span className="size-1.5 rounded-full bg-emerald-400 shadow-[0_0_8px_currentColor]" />
             <span>All systems operational</span>
             <span className="text-white/15">·</span>
@@ -224,21 +257,26 @@ export function Faucet({ network, setNetwork, evmAddressFromHeader }: FaucetProp
 
         {/* Title */}
         <div className="mb-8 md:mb-10 max-w-2xl">
-          <p className="text-xs uppercase tracking-[0.22em] text-white/40 mb-3 font-medium">
+          <p className="text-xs uppercase tracking-[0.22em] text-white/40 mb-3 font-medium animate-fade-in-up">
             XRPL EVM Faucet
           </p>
-          <h1 className="text-[34px] md:text-[44px] leading-[1.05] tracking-tight font-semibold">
-            Test XRP, to your wallet
+          <h1 className="text-[34px] md:text-[44px] leading-[1.05] tracking-tight font-semibold animate-blur-reveal">
+            Get test XRP, to your wallet
             <span className="animate-gradient-text bg-gradient-to-r from-primary via-secondary to-primary bg-[length:200%_auto] bg-clip-text text-transparent"> in seconds.</span>
           </h1>
-          <p className="mt-3 text-[15px] text-white/55 leading-relaxed">
+          <p className="mt-3 text-[15px] text-white/55 leading-relaxed animate-fade-in-up [animation-delay:280ms]">
             Get test XRP delivered on the XRPL EVM sidechain. Pick a
             network, <b>CONNECT</b> or <b>PASTE</b> your address, and you&apos;re set.
           </p>
         </div>
 
         {/* Card */}
-        <div className="relative rounded-xl bg-white/[0.025] border border-white/10 backdrop-blur-xl shadow-[0_24px_80px_-24px_rgba(0,0,0,0.6)]">
+        <div className="relative rounded-xl bg-white/[0.025] border border-white/10 backdrop-blur-xl shadow-[0_24px_80px_-24px_rgba(0,0,0,0.6)] animate-card-rise overflow-hidden">
+          {/* Animated top border highlight */}
+          <span
+            aria-hidden
+            className="pointer-events-none absolute inset-x-20 top-0 h-px bg-gradient-to-r from-transparent via-primary to-transparent animate-edge-shimmer"
+          />
           <div className="relative p-5 md:p-8 grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-8">
             {/* LEFT — Form */}
             <div className="space-y-7">
@@ -360,8 +398,13 @@ export function Faucet({ network, setNetwork, evmAddressFromHeader }: FaucetProp
             </div>
 
             {/* RIGHT — Order summary */}
-            <aside className="lg:sticky lg:top-6 lg:self-start">
-              <div className="rounded-xl border border-white/10 bg-gradient-to-b from-white/[0.04] to-white/[0.01] p-5">
+            <aside className="lg:sticky lg:top-6 lg:self-start animate-fade-in-right">
+              <div className="relative overflow-hidden rounded-xl border border-white/10 bg-gradient-to-b from-white/[0.04] to-white/[0.01] p-5">
+                {/* Decorative rotating ring */}
+                <span
+                  aria-hidden
+                  className="pointer-events-none absolute -right-16 -top-16 h-44 w-44 rounded-full border border-primary/30 animate-spin-slow"
+                />
 
                 <div className="flex items-baseline gap-2 mb-4">
                   <span className="text-[44px] leading-none font-semibold tracking-tight">
@@ -500,6 +543,90 @@ export function Faucet({ network, setNetwork, evmAddressFromHeader }: FaucetProp
         }
         .animate-gradient-text {
           animation: gradient-text 6s ease infinite;
+        }
+
+        /* Floating orbs */
+        @keyframes orb-drift-a {
+          0%, 100% { transform: translate(0, 0); opacity: 0.25; }
+          50% { transform: translate(14px, -24px); opacity: 0.55; }
+        }
+        @keyframes orb-drift-b {
+          0%, 100% { transform: translate(0, 0); opacity: 0.25; }
+          50% { transform: translate(-12px, -18px); opacity: 0.5; }
+        }
+        .animate-orb-a { animation: orb-drift-a 7s ease-in-out infinite; }
+        .animate-orb-b { animation: orb-drift-b 7s ease-in-out 1.2s infinite; }
+
+        /* Diagonal grid drift + per-line shimmer */
+        @keyframes grid-drift-left {
+          0%, 100% { transform: rotate(-45deg) translate(0, 0); }
+          50% { transform: rotate(-45deg) translate(-18px, -10px); }
+        }
+        @keyframes grid-drift-right {
+          0%, 100% { transform: rotate(45deg) translate(0, 0); }
+          50% { transform: rotate(45deg) translate(-18px, -10px); }
+        }
+        @keyframes grid-line-pulse {
+          0%, 100% { opacity: 0.15; transform: scaleX(0.7); }
+          50% { opacity: 0.85; transform: scaleX(1); }
+        }
+        .animate-grid-drift-left { animation: grid-drift-left 8s ease-in-out infinite; }
+        .animate-grid-drift-right { animation: grid-drift-right 8s ease-in-out infinite; }
+        .animate-grid-line { animation: grid-line-pulse 3.2s ease-in-out infinite; transform-origin: left center; }
+
+        /* Card top edge shimmer */
+        @keyframes edge-shimmer {
+          0%, 100% { opacity: 0.25; }
+          50% { opacity: 0.65; }
+        }
+        .animate-edge-shimmer { animation: edge-shimmer 4s ease-in-out infinite; }
+
+        /* Slow spin for decorative ring */
+        @keyframes spin-slow { to { transform: rotate(360deg); } }
+        .animate-spin-slow { animation: spin-slow 16s linear infinite; }
+
+        /* Entrance animations */
+        @keyframes fade-in-up {
+          from { opacity: 0; transform: translateY(18px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes fade-in-down {
+          from { opacity: 0; transform: translateY(-12px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes fade-in-left {
+          from { opacity: 0; transform: translateX(-18px); }
+          to { opacity: 1; transform: translateX(0); }
+        }
+        @keyframes fade-in-right {
+          from { opacity: 0; transform: translateX(28px); }
+          to { opacity: 1; transform: translateX(0); }
+        }
+        @keyframes blur-reveal {
+          from { opacity: 0; transform: translateY(24px); filter: blur(12px); }
+          to { opacity: 1; transform: translateY(0); filter: blur(0); }
+        }
+        @keyframes card-rise {
+          from { opacity: 0; transform: translateY(38px) scale(0.98); }
+          to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        .animate-fade-in-up { animation: fade-in-up 0.7s ease-out both; }
+        .animate-fade-in-down { animation: fade-in-down 0.7s ease-out 0.25s both; }
+        .animate-fade-in-left { animation: fade-in-left 0.7s ease-out both; }
+        .animate-fade-in-right { animation: fade-in-right 0.8s ease-out 0.48s both; }
+        .animate-blur-reveal { animation: blur-reveal 0.8s cubic-bezier(0.22, 1, 0.36, 1) 0.12s both; }
+        .animate-card-rise { animation: card-rise 0.8s cubic-bezier(0.22, 1, 0.36, 1) 0.25s both; }
+
+        @media (prefers-reduced-motion: reduce) {
+          .animate-orb-a, .animate-orb-b,
+          .animate-grid-drift-left, .animate-grid-drift-right, .animate-grid-line,
+          .animate-edge-shimmer, .animate-spin-slow,
+          .animate-fade-in-up, .animate-fade-in-down,
+          .animate-fade-in-left, .animate-fade-in-right,
+          .animate-blur-reveal, .animate-card-rise,
+          .animate-faucet-aura, .animate-gradient-text {
+            animation: none !important;
+          }
         }
       `}</style>
     </>
