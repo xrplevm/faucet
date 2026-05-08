@@ -1,12 +1,18 @@
 import "./globals.css";
 
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Work_Sans } from "next/font/google";
 import { TailwindIndicator } from "@/components/tailwind-indicator";
 
 const workSans = Work_Sans({
   subsets: ["latin"],
 });
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+};
 
 export const metadata: Metadata = {
   title: "XRPL EVM Sidechain Faucet",
@@ -42,7 +48,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         Make sure the <body> is "relative" so our absolutely positioned
         images can be placed behind other content via z-[-1].
       */}
-      <body className={`${workSans.className} antialiased relative`}>
+      <body className={`${workSans.className} antialiased relative overflow-x-hidden`}>
 
         {children}
 

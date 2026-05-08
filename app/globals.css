@@ -4,12 +4,25 @@
 
 @custom-variant dark (&:is(.dark *));
 
+html,
+body {
+  /* Prevent horizontal overflow on all routes (mobile responsive AC #1). */
+  overflow-x: hidden;
+  max-width: 100%;
+}
+
 body {
   background-color: var(--background);
 }
 
 html {
   scroll-behavior: smooth;
+}
+
+img,
+video {
+  max-width: 100%;
+  height: auto;
 }
 
 :root {

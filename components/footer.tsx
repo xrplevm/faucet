@@ -35,19 +35,19 @@ const socialLinks: FooterSocialProps[] = [
 
 export function Footer() {
   return (
-    <footer className="relative px-4 md:px-0 backdrop-blur-xl bg-background/50 z-50 isolate overflow-x-hidden md:overflow-x-visible">
-      <div className="border-t pt-8 justify-between relative max-w-4xl mx-auto w-full mb-[120px] grid grid-cols-2 md:flex">
-        <div className="flex flex-col gap-6 z-10">
+    <footer className="relative px-4 sm:px-6 md:px-8 backdrop-blur-xl bg-background/50 z-50 isolate overflow-x-hidden">
+      <div className="border-t pt-8 justify-between relative max-w-4xl mx-auto w-full mb-16 sm:mb-24 md:mb-[120px] grid grid-cols-2 gap-6 md:flex md:gap-8">
+        <div className="flex flex-col gap-6 z-10 col-span-2 md:col-span-1 min-w-0">
           <Logo />
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             {socialLinks.map((link) => (
               <FooterSocial key={link.href} href={link.href} icon={link.icon} />
             ))}
           </div>
         </div>
 
-        <div className="flex flex-col gap-2 z-10">
+        <div className="flex flex-col gap-2 z-10 min-w-0">
           <p className="font-semibold">Build</p>
           {buildLinks.map((link) => (
             <div key={link.label}>
@@ -62,7 +62,7 @@ export function Footer() {
           ))}
         </div>
 
-        <div className="flex flex-col gap-2 z-10">
+        <div className="flex flex-col gap-2 z-10 min-w-0">
           <p className="font-semibold">Ecosystem</p>
           {ecosystemLinks.map((link) => (
             <div key={link.label}>
@@ -71,7 +71,7 @@ export function Footer() {
           ))}
         </div>
 
-        <div className="flex flex-col gap-2 z-10">
+        <div className="flex flex-col gap-2 z-10 min-w-0">
           <p className="font-semibold">Community</p>
           {communityLinks.map((link) => (
             <div key={link.label}>

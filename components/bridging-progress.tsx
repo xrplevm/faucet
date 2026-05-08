@@ -109,12 +109,14 @@ export function BridgingProgress({ className }: { className?: string }) {
   }, []);
 
   return (
-    <div className={cn("flex items-center justify-center flex-col gap-2 mt-4 min-h-[40px]", className)}>
+    <div className={cn("flex items-center justify-center flex-col gap-2 mt-4 min-h-[40px] w-full", className)}>
       <div className="flex items-center gap-2 animate-pulse">
         <Loader2 className="w-4 h-4 animate-spin text-green-500" />
         <span className="text-sm text-muted-foreground">Bridging in progress...</span>
       </div>
-      <div className="text-center text-sm text-muted-foreground animate-pulse italic max-w-[90%]">{currentFact}</div>
+      <div className="text-center text-xs sm:text-sm text-muted-foreground animate-pulse italic max-w-full break-words px-1">
+        {currentFact}
+      </div>
     </div>
   );
 }

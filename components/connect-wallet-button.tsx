@@ -180,8 +180,12 @@ export function ConnectWalletButton({ className, onConnected, onDisconnected }: 
             <span className="font-semibold">{shortAddr}</span>
           </Button>
         </PopoverTrigger>
-        <PopoverContent className="w-40 p-2">
-          <button className="w-full text-left px-2 py-1 hover:bg-white/10 rounded-md" onClick={handleDisconnect}>
+        <PopoverContent
+          className="w-40 max-w-[calc(100vw-2rem)] p-2"
+          align="end"
+          collisionPadding={16}
+        >
+          <button className="w-full min-h-11 text-left px-2 py-2 hover:bg-white/10 rounded-md" onClick={handleDisconnect}>
             Disconnect
           </button>
         </PopoverContent>
