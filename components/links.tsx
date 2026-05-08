@@ -3,7 +3,7 @@ import { ExternalLinkProps } from "./external-link";
 export const buildLinks: ExternalLinkProps[] = [
   {
     label: "Cross-Chain apps",
-    href: "https://crosschain.xrplevm.org/",
+    href: "https://docs.xrplevm.org/pages/developers/interacting-with-evm/advanced-guides/cross-chain-transactions/introduction",
     external: true,
   },
   {
@@ -30,7 +30,7 @@ export const buildLinks: ExternalLinkProps[] = [
 export const ecosystemLinks: ExternalLinkProps[] = [
   {
     label: "Bridge",
-    href: "https://bridge.xrplevm.org/bridge",
+    href: "https://app.squidrouter.com/",
     external: true,
   },
   {
@@ -45,7 +45,7 @@ export const ecosystemLinks: ExternalLinkProps[] = [
   },
   {
     label: "Cosmos Explorer",
-    href: "https://governance.xrplevm.org/xrp",
+    href: "https://governance.xrplevm.org",
     external: true,
   },
   {

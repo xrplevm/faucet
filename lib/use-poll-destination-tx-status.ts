@@ -16,14 +16,42 @@ const NATIVE_TOKEN_ADDRESS = "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE";
 const FAUCET_AMOUNT_XRP = 97.3;
 const AMOUNT_TOLERANCE_XRP = 3;
 
+interface AxelarStepRef {
+  transactionHash?: string;
+  chain?: string;
+  block?: number;
+  blockNumber?: number;
+}
+
 interface AxelarRecord {
   status?: string;
   simplified_status?: string;
   message_id?: string;
-  executed?: { transactionHash?: string; chain?: string };
-  call?: { chain?: string; transactionHash?: string };
+  call?: AxelarStepRef;
+  confirm?: AxelarStepRef;
+  approved?: AxelarStepRef;
+  executed?: AxelarStepRef;
   interchain_transfer?: { rawDestinationAddress?: string; amount?: string };
   error?: unknown;
+}
+
+// Lifecycle steps for an XRPL → XRPL EVM bridge transfer, in order.
+// `submitted` is reached as soon as we broadcast the XRPL Payment.
+// The rest are derived from the Axelar GMP record's per-step keys.
+export type BridgeStep = "submitted" | "confirmed" | "approved" | "executed";
+
+const STEP_RANK: Record<BridgeStep, number> = {
+  submitted: 0,
+  confirmed: 1,
+  approved: 2,
+  executed: 3,
+};
+
+function deriveStepFromRecord(r: AxelarRecord): BridgeStep {
+  if (r.executed?.transactionHash) return "executed";
+  if (r.approved?.transactionHash) return "approved";
+  if (r.confirm?.transactionHash) return "confirmed";
+  return "submitted";
 }
 
 interface AxelarResponse {
@@ -50,15 +78,22 @@ export function usePollDestinationTxStatus(
   const [status, setStatus] = useState<"Pending" | "Arrived" | "Timeout" | "Failed">("Pending");
   const [destinationTxHash, setDestinationTxHash] = useState<string | null>(null);
   const [bridgingTimeMs, setBridgingTimeMs] = useState<number | null>(null);
+  const [bridgeStep, setBridgeStep] = useState<BridgeStep>("submitted");
 
   useEffect(() => {
     // Devnet has no bridge — the EVM tx IS the result, so nothing to poll.
     if (network !== "Testnet") return;
     if (!txHash) return;
 
+    setBridgeStep("submitted");
+
     const startedAtMs = sourceCloseTimeIso ? new Date(sourceCloseTimeIso).getTime() : Date.now();
     let arrived = false;
     let attempts = 0;
+
+    const advanceStep = (next: BridgeStep) => {
+      setBridgeStep((prev) => (STEP_RANK[next] > STEP_RANK[prev] ? next : prev));
+    };
 
     const markArrived = (destTx: string, source: "axelar" | "explorer") => {
       if (arrived) return;
@@ -67,6 +102,7 @@ export function usePollDestinationTxStatus(
       setDestinationTxHash(destTx);
       setBridgingTimeMs(Date.now() - startedAtMs);
       setStatus("Arrived");
+      advanceStep("executed");
     };
 
     // Primary signal: Axelar's GMP indexer.
@@ -81,6 +117,17 @@ export function usePollDestinationTxStatus(
         console.log("[bridge-status][axelar] poll", { total: resp.data?.total, records: records.length });
 
         if (records.length === 0) return; // not indexed yet
+
+        // Lift overall lifecycle step from whichever record is furthest along.
+        // Each per-step key (call/confirm/approved/executed) is populated as Axelar
+        // observes the corresponding event on its side, so the highest-ranked
+        // populated key is the user-visible "current step".
+        let highest: BridgeStep = "submitted";
+        for (const r of records) {
+          const s = deriveStepFromRecord(r);
+          if (STEP_RANK[s] > STEP_RANK[highest]) highest = s;
+        }
+        advanceStep(highest);
 
         const evmLeg = records.find(
           (r) =>
@@ -167,5 +214,5 @@ export function usePollDestinationTxStatus(
     return () => clearInterval(intervalId);
   }, [destinationAddress, sourceCloseTimeIso, txHash, network]);
 
-  return { status, destinationTxHash, bridgingTimeMs };
+  return { status, destinationTxHash, bridgingTimeMs, bridgeStep };
 }

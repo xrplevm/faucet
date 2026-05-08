@@ -49,16 +49,32 @@ const NETWORK_CONFIGS: Record<NetworkType, typeof TESTNET_CONFIG> = {
 };
 
 /**
- * ✅ Common logic for requesting a network add/switch in MetaMask
- * If MetaMask not installed, redirects to installation page.
+ * Switch MetaMask to the requested chain. If the chain isn't added yet (error 4902),
+ * fall back to wallet_addEthereumChain so the user only sees the "add" prompt when
+ * the chain truly isn't installed.
  */
-async function addNetworkToMetamask(network: NetworkType) {
+async function switchOrAddNetwork(network: NetworkType) {
   if (!window.ethereum) {
     window.open(INSTALL_METAMASK_URL, "_blank");
     return;
   }
 
   const selectedConfig = NETWORK_CONFIGS[network];
+
+  try {
+    await window.ethereum.request({
+      method: "wallet_switchEthereumChain",
+      params: [{ chainId: selectedConfig.chainId }],
+    });
+    return;
+  } catch (error: unknown) {
+    const code = (error as { code?: number })?.code;
+    // 4902: chain not added. Anything else (e.g. 4001 user-rejected) we should not retry.
+    if (code !== 4902) {
+      if (code !== 4001) console.error("Failed to switch network:", error);
+      return;
+    }
+  }
 
   try {
     await window.ethereum.request({
@@ -81,7 +97,7 @@ export function MetamaskButton({
   network: NetworkType;
 }) {
   async function handleClick() {
-    await addNetworkToMetamask(network);
+    await switchOrAddNetwork(network);
   }
 
   return (
@@ -92,7 +108,7 @@ export function MetamaskButton({
       size="lg"
     >
       <Icons.Metamask className="size-6" />
-      <span className="font-bold">Add XRPL EVM Sidechain {network}</span>
+      <span className="font-bold">Switch to XRPL EVM {network}</span>
     </Button>
   );
 }
@@ -108,7 +124,7 @@ export function MetamaskHeaderButton({
   network: NetworkType;
 }) {
   async function handleClick() {
-    await addNetworkToMetamask(network);
+    await switchOrAddNetwork(network);
   }
 
   return (

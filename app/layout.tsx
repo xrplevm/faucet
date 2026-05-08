@@ -43,17 +43,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         images can be placed behind other content via z-[-1].
       */}
       <body className={`${workSans.className} antialiased relative`}>
-        <img
-          src="/left.svg"
-          alt="Branding left"
-          className="absolute top-0 bottom-0 left-0 w-32 md:w-69 object-contain pointer-events-none z-[-1]"
-        />
-
-        <img
-          src="/right.svg"
-          alt="Branding right"
-          className="absolute top-50 bottom-0 right-0 w-32 md:w-69 object-contain pointer-events-none z-[-1]"
-        />
 
         {children}
 

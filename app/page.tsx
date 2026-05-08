@@ -6,35 +6,20 @@ import { Footer } from "@/components/footer";
 
 export default function Home() {
   const [network, setNetwork] = useState<"Testnet" | "Devnet">("Testnet");
-
-  // We’ll track if we are mounted so SSR doesn’t mismatch client logic
   const [isMounted, setIsMounted] = useState(false);
 
   useEffect(() => {
-    // This runs only on the client
     setIsMounted(true);
   }, []);
 
-  // On the server (SSR), isMounted = false => we show minimal placeholder
-  // so the client & server match. On the client, we do the real rendering.
   if (!isMounted) {
-    // Return a small stable placeholder to avoid mismatch
-    return (
-      <main className="flex flex-col min-h-screen w-full">
-        {/* Basic placeholder or nothing */}
-        <div className="flex-grow flex items-center justify-center">{/* Or a spinner if you like */}</div>
-        {/* <Footer /> */}
-      </main>
-    );
+    return <div className="min-h-screen w-full" />;
   }
 
-  // Once mounted, do your normal rendering
   return (
-    <main className="flex flex-col min-h-screen w-full">
-      <div className="flex items-center justify-center my-10 md:my-37">
-        <Faucet network={network} setNetwork={setNetwork} />
-      </div>
+    <div className="flex flex-col min-h-screen w-full">
+      <Faucet network={network} setNetwork={setNetwork} />
       <Footer />
-    </main>
+    </div>
   );
 }
