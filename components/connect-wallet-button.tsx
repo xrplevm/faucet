@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { Button } from "./ui/button";
 import { Icons } from "./icons";
 import { cn } from "@/lib/utils";
@@ -25,11 +25,26 @@ interface ConnectWalletButtonProps {
   onDisconnected?: () => void;
 }
 
+// Canonical "am I on the client?" snapshot for hydration-safe rendering.
+// Server snapshot is `false`, client snapshot is `true`, so the first client
+// render matches the SSR output and switches to `true` after hydration —
+// without ever calling setState inside an effect.
+const subscribeMounted = (): (() => void) => () => {};
+const getMountedClientSnapshot = (): boolean => true;
+const getMountedServerSnapshot = (): boolean => false;
+
+function readIsReturningUserFromStorage(): boolean {
+  if (typeof window === "undefined") return false;
+  return localStorage.getItem("isReturningUser") === "true";
+}
+
 export function ConnectWalletButton({ className, onConnected, onDisconnected }: ConnectWalletButtonProps) {
   const [connectedAccount, setConnectedAccount] = useState<string | null>(null);
-  const [, setIsReturningUser] = useState(true);
-  const [mounted, setMounted] = useState(false);
-  const [hasMetaMask, setHasMetaMask] = useState<boolean>(false);
+  const [, setIsReturningUser] = useState<boolean>(readIsReturningUserFromStorage);
+  const mounted = useSyncExternalStore(subscribeMounted, getMountedClientSnapshot, getMountedServerSnapshot);
+  const [hasMetaMask, setHasMetaMask] = useState<boolean>(
+    () => typeof window !== "undefined" && Boolean(window.ethereum),
+  );
   const [showInstallModal, setShowInstallModal] = useState<boolean>(false);
 
   // Detect if user is on a mobile browser (e.g. Safari/Chrome on iOS/Android)
@@ -38,12 +53,6 @@ export function ConnectWalletButton({ className, onConnected, onDisconnected }: 
 
   // 1) Dynamically detect MetaMask
   useEffect(() => {
-    setMounted(true);
-
-    if (typeof window !== "undefined" && window.ethereum) {
-      setHasMetaMask(true);
-    }
-
     function handleEthereumInitialized() {
       setHasMetaMask(true);
     }
@@ -64,12 +73,6 @@ export function ConnectWalletButton({ className, onConnected, onDisconnected }: 
 
   // 2) On mount, check for existing accounts & subscribe to events
   useEffect(() => {
-    setMounted(true);
-
-    const stored = localStorage.getItem("isReturningUser");
-    if (stored === null) setIsReturningUser(false);
-    else setIsReturningUser(stored === "true");
-
     if (!window.ethereum) return;
 
     window.ethereum.request<string[]>({ method: "eth_accounts" }).then((accounts) => {

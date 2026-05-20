@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState, useEffect, useMemo, JSX } from "react";
+import React, { useState, useEffect, useMemo, useSyncExternalStore, JSX } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { Logo } from "./logo";
 import { ConnectWalletButton } from "./connect-wallet-button";
@@ -40,7 +41,7 @@ const NETWORKS: NetworkSpec[] = [
     chainIdHex: "0x" + Number(1449000).toString(16),
     rpc: "rpc.testnet.xrplevm.org",
     explorer: "explorer.testnet.xrplevm.org",
-    amount: 97,
+    amount: 98.83,
     cooldown: "24 h",
     latency: "~2 min",
     bridged: true,
@@ -69,10 +70,16 @@ const NETWORK_BY_ID: Record<NetworkType, NetworkSpec> = {
 const EVM_ADDRESS_RE = /^0x[0-9a-fA-F]{40}$/;
 const looksLikeEvmStart = (a: string) => /^0x[0-9a-fA-F]{0,40}$/.test(a.trim());
 
+// Testnet bridge polling can run for ~25 min before timing out. After 130s in
+// "Pending" we surface a soft warning that the faucet may be down and point the
+// user to the community Discord faucet channel as a fallback. The polling keeps
+// running underneath; this is purely an additive UX hint.
+const FAUCET_DOWN_WARNING_DELAY_MS = 130_000;
+const COMMUNITY_FAUCET_DISCORD_URL = "https://discord.gg/2BxtzqeZTu";
+
 interface FaucetProps {
   network: NetworkType;
   setNetwork: React.Dispatch<React.SetStateAction<NetworkType>>;
-  evmAddressFromHeader?: string;
 }
 
 const getEthereumProvider = (): MetaMaskInpageProvider | undefined => {
@@ -81,6 +88,14 @@ const getEthereumProvider = (): MetaMaskInpageProvider | undefined => {
   }
   return undefined;
 };
+
+// Canonical "am I on the client?" snapshot for hydration-safe rendering.
+// Server snapshot is `false`, client snapshot is `true`, so the first client
+// render matches the SSR output and switches to `true` after hydration —
+// without ever calling setState inside an effect.
+const subscribeMounted = (): (() => void) => () => {};
+const getMountedClientSnapshot = (): boolean => true;
+const getMountedServerSnapshot = (): boolean => false;
 
 function DiagonalGrid({ side }: { side: "left" | "right" }) {
   const lines = Array.from({ length: 36 });
@@ -109,8 +124,8 @@ function DiagonalGrid({ side }: { side: "left" | "right" }) {
   );
 }
 
-export function Faucet({ network, setNetwork, evmAddressFromHeader }: FaucetProps): JSX.Element {
-  const [evmAddress, setEvmAddress] = useState<string>(evmAddressFromHeader || "");
+export function Faucet({ network, setNetwork }: FaucetProps): JSX.Element {
+  const [evmAddress, setEvmAddress] = useState<string>("");
   const [connectedAddress, setConnectedAddress] = useState<string>("");
   const [socialsCompleted, setSocialsCompleted] = useState({ twitter: false, discord: false });
   const [loading, setLoading] = useState<boolean>(false);
@@ -118,10 +133,20 @@ export function Faucet({ network, setNetwork, evmAddressFromHeader }: FaucetProp
   const [showMissingRequirementsModal, setShowMissingRequirementsModal] = useState<boolean>(false);
   const [showTxModal, setShowTxModal] = useState<boolean>(false);
   const [showInvalidAddressModal, setShowInvalidAddressModal] = useState<boolean>(false);
+  const [showFaucetErrorModal, setShowFaucetErrorModal] = useState<boolean>(false);
+  const [faucetErrorMessage, setFaucetErrorMessage] = useState<string>("");
   const [chainId, setChainId] = useState<string | null>(null);
   const [devnetSubmitError, setDevnetSubmitError] = useState<boolean>(false);
   const [devnetTxHash, setDevnetTxHash] = useState<string | null>(null);
   const [copied, setCopied] = useState<boolean>(false);
+
+  // Gate browser-dependent render branches behind `mounted` to prevent the
+  // server tree (no `window.ethereum`) from diverging from the client tree.
+  const mounted = useSyncExternalStore(
+    subscribeMounted,
+    getMountedClientSnapshot,
+    getMountedServerSnapshot,
+  );
 
   const ethereum = getEthereumProvider();
   const hasMetaMask: boolean = Boolean(ethereum);
@@ -134,10 +159,6 @@ export function Faucet({ network, setNetwork, evmAddressFromHeader }: FaucetProp
   const isConnected = connectedAddress !== "";
   const validAddr = EVM_ADDRESS_RE.test(evmAddress.trim());
   const showAddrError = !!evmAddress && !validAddr && evmAddress.length > 5;
-
-  useEffect(() => {
-    setEvmAddress(evmAddressFromHeader || "");
-  }, [evmAddressFromHeader]);
 
   useEffect(() => {
     async function fetchChainId() {
@@ -209,7 +230,8 @@ export function Faucet({ network, setNetwork, evmAddressFromHeader }: FaucetProp
       setShowTxModal(true);
     } catch (error: unknown) {
       console.error("Error requesting faucet:", error);
-      alert("Error requesting faucet: " + (error instanceof Error ? error.message : String(error)));
+      setFaucetErrorMessage(error instanceof Error ? error.message : String(error));
+      setShowFaucetErrorModal(true);
     } finally {
       setLoading(false);
     }
@@ -260,7 +282,7 @@ export function Faucet({ network, setNetwork, evmAddressFromHeader }: FaucetProp
           <p className="text-xs uppercase tracking-[0.22em] text-white/40 mb-3 font-medium animate-fade-in-up">
             XRPL EVM Faucet
           </p>
-          <h1 className="text-[28px] sm:text-[34px] md:text-[44px] leading-[1.1] md:leading-[1.05] tracking-tight font-semibold animate-blur-reveal break-words">
+          <h1 className="text-[28px] sm:text-[34px] md:text-[44px] leading-[1.1] md:leading-[1.05] tracking-tight font-semibold animate-blur-reveal break-words text-balance">
             Get test XRP, to your wallet
             <span className="animate-gradient-text bg-gradient-to-r from-primary via-secondary to-primary bg-[length:200%_auto] bg-clip-text text-transparent"> in seconds.</span>
           </h1>
@@ -297,7 +319,7 @@ export function Faucet({ network, setNetwork, evmAddressFromHeader }: FaucetProp
                     }}
                     onDisconnected={() => setConnectedAddress("")}
                   />
-                  {hasMetaMask && !isOnDesiredChain && (
+                  {mounted && hasMetaMask && !isOnDesiredChain && (
                     <MetamaskButton className="h-11 px-3 text-xs rounded-xl" network={network} />
                   )}
                 </div>
@@ -305,7 +327,7 @@ export function Faucet({ network, setNetwork, evmAddressFromHeader }: FaucetProp
 
               {/* Address field */}
               <div>
-                <label className="text-xs text-white/45 mb-2 block font-medium">
+                <label htmlFor="evm-address" className="text-xs text-white/45 mb-2 block font-medium">
                   Recipient address
                 </label>
                 <div
@@ -315,10 +337,11 @@ export function Faucet({ network, setNetwork, evmAddressFromHeader }: FaucetProp
                 >
                   <span className="text-white/30 text-sm shrink-0">›</span>
                   <input
+                    id="evm-address"
                     value={evmAddress}
                     onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEvmAddress(e.target.value)}
                     disabled={isConnected}
-                    placeholder="0x5l8r9m… your EVM address"
+                    placeholder="0x… your EVM address"
                     spellCheck={false}
                     autoComplete="off"
                     className="flex-1 min-w-0 bg-transparent outline-none text-sm sm:text-[15px] placeholder:text-white/25 disabled:text-white/70 disabled:cursor-not-allowed"
@@ -327,7 +350,7 @@ export function Faucet({ network, setNetwork, evmAddressFromHeader }: FaucetProp
                     <button
                       onClick={copyAddr}
                       type="button"
-                      className="shrink-0 text-[11px] text-white/45 hover:text-white/85 px-2 py-1 rounded-xl hover:bg-white/5 transition-colors font-medium"
+                      className="shrink-0 h-11 px-3 text-[11px] text-white/45 hover:text-white/85 rounded-xl hover:bg-white/5 transition-colors font-medium"
                       title="Copy"
                     >
                       {copied ? "Copied!" : "Copy"}
@@ -407,7 +430,7 @@ export function Faucet({ network, setNetwork, evmAddressFromHeader }: FaucetProp
                 />
 
                 <div className="flex items-baseline gap-2 mb-4">
-                  <span className="text-[36px] sm:text-[44px] leading-none font-semibold tracking-tight">
+                  <span className="text-[36px] sm:text-[44px] leading-none font-semibold tracking-tight tabular-nums">
                     {current.amount}
                   </span>
                   <span className="text-white/50 text-sm">XRP</span>
@@ -423,7 +446,7 @@ export function Faucet({ network, setNetwork, evmAddressFromHeader }: FaucetProp
                 <button
                   onClick={handleRequestXRP}
                   disabled={loading || !!txData}
-                  className="mt-6 w-full min-h-12 h-12 rounded-xl text-sm sm:text-[15px] font-semibold relative overflow-hidden transition-all disabled:opacity-70 disabled:cursor-not-allowed text-white px-4"
+                  className="mt-6 w-full min-h-12 h-12 rounded-xl text-sm sm:text-[15px] font-semibold relative overflow-hidden transition-all disabled:opacity-70 disabled:cursor-not-allowed text-white px-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 focus-visible:ring-offset-2 focus-visible:ring-offset-black"
                   style={{
                     background:
                       "linear-gradient(180deg, oklch(0.5 0.3 296.7) 0%, oklch(0.42 0.28 296.7) 100%)",
@@ -519,6 +542,28 @@ export function Faucet({ network, setNetwork, evmAddressFromHeader }: FaucetProp
             <div className="flex justify-center mt-2">
               <button
                 onClick={() => setShowInvalidAddressModal(false)}
+                className="h-11 px-5 rounded-xl bg-white/10 hover:bg-white/15 text-sm font-semibold"
+              >
+                Close
+              </button>
+            </div>
+          </AlertDialogContent>
+        </AlertDialog>
+      )}
+
+      {/* Faucet request error */}
+      {showFaucetErrorModal && (
+        <AlertDialog open={showFaucetErrorModal} onOpenChange={setShowFaucetErrorModal}>
+          <AlertDialogContent className="bg-[#0c0c0c] border-white/12 rounded-xl">
+            <AlertDialogHeader>
+              <AlertDialogTitle className="text-center">Faucet request failed</AlertDialogTitle>
+            </AlertDialogHeader>
+            <p className="text-sm text-white/55 text-center break-words">
+              {faucetErrorMessage || "Something went wrong while contacting the faucet. Please try again."}
+            </p>
+            <div className="flex justify-center mt-2">
+              <button
+                onClick={() => setShowFaucetErrorModal(false)}
                 className="h-11 px-5 rounded-xl bg-white/10 hover:bg-white/15 text-sm font-semibold"
               >
                 Close
@@ -652,7 +697,7 @@ function NetworkCards({
             type="button"
             onClick={() => onChange(n.id)}
             aria-pressed={active}
-            className={`flex items-center gap-2 h-10 px-4 rounded-xl border text-sm font-semibold transition-all outline-none focus-visible:ring-2 focus-visible:ring-primary/60 ${
+            className={`flex items-center gap-2 h-11 px-4 rounded-xl border text-sm font-semibold transition-all outline-none focus-visible:ring-2 focus-visible:ring-primary/60 ${
               active
                 ? "bg-primary/15 border-primary/60 text-white"
                 : "bg-white/[0.03] border-white/10 text-white/60 hover:bg-white/[0.06] hover:text-white/85"
@@ -675,7 +720,7 @@ function SummaryRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-center justify-between gap-3 border-b border-white/[0.06] pb-2 last:border-0">
       <dt className="text-white/40">{label}</dt>
-      <dd className="text-white/85 truncate">{value}</dd>
+      <dd className="text-white/85 truncate tabular-nums">{value}</dd>
     </div>
   );
 }
@@ -697,7 +742,7 @@ function TaskRow({
     <Link
       href={href}
       target="_blank"
-      rel="noreferrer"
+      rel="noopener noreferrer"
       onClick={onClick}
       className={`flex items-center gap-3 h-14 px-4 rounded-xl border transition-all ${
         done
@@ -710,7 +755,7 @@ function TaskRow({
           done ? "bg-emerald-500/15" : "bg-white/[0.06]"
         }`}
       >
-        <img src={icon} alt="" className="size-4 object-contain opacity-90" />
+        <Image src={icon} alt="" width={16} height={16} className="size-4 object-contain opacity-90" />
       </span>
       <span className="flex-1 text-sm font-medium">{title}</span>
       <span
@@ -802,6 +847,27 @@ function TransactionStatusModal({
   const isDone = effectiveStatus === "Arrived";
   const isFailure = effectiveStatus === "Failed" || effectiveStatus === "Timeout";
 
+  // Soft warning shown when a testnet bridge has been pending for
+  // FAUCET_DOWN_WARNING_DELAY_MS. Resets whenever the modal closes or the
+  // status leaves "Pending" so the next request starts clean.
+  const [showFaucetDownNotice, setShowFaucetDownNotice] = useState<boolean>(false);
+  const shouldArmFaucetDownTimer = open && !isDevnet && isPending;
+
+  useEffect(() => {
+    if (!shouldArmFaucetDownTimer) return;
+    const timerId = window.setTimeout(() => {
+      setShowFaucetDownNotice(true);
+    }, FAUCET_DOWN_WARNING_DELAY_MS);
+    // Reset is performed on cleanup: whenever the timer is armed and then
+    // disarmed (modal closes, status leaves "Pending", devnet selected), the
+    // previous effect's teardown clears the notice. Initial state is already
+    // `false`, so the "never-armed" path needs no extra reset.
+    return () => {
+      window.clearTimeout(timerId);
+      setShowFaucetDownNotice(false);
+    };
+  }, [shouldArmFaucetDownTimer]);
+
   let dotClass = "bg-amber-400 animate-pulse";
   let title = "Transaction in progress";
   if (isDone) {
@@ -827,78 +893,83 @@ function TransactionStatusModal({
           <AlertDialogTitle className="sr-only">Transaction status</AlertDialogTitle>
         </AlertDialogHeader>
 
-        <div className="flex items-center gap-3 mb-1">
-          <span className={`size-2.5 rounded-full ${dotClass} shadow-[0_0_10px_currentColor]`} />
-          <h3 className="text-base font-semibold">{title}</h3>
-        </div>
-
-        <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-[11px] uppercase tracking-[0.18em] text-white/40">Status</span>
-            <span className={`text-xs font-semibold ${statusToneClass}`}>{statusLabel}</span>
+        {/* role+aria-live announces Pending → Arrived/Failed transitions to AT users,
+            since the dot/title/statusLabel are the only visual cues of progress. */}
+        <div role="status" aria-live="polite">
+          <div className="flex items-center gap-3 mb-1">
+            <span className={`size-2.5 rounded-full ${dotClass} shadow-[0_0_10px_currentColor]`} />
+            <h3 className="text-base font-semibold">{title}</h3>
           </div>
 
-          {isPending && isDevnet && (
-            <>
-              <div className="h-1 rounded-full bg-white/[0.06] overflow-hidden">
-                <div
-                  className="h-full bg-gradient-to-r from-primary to-secondary"
-                  style={{
-                    width: devnetTxHash ? "78%" : "20%",
-                    transition: "width 4s ease-out",
-                  }}
-                />
-              </div>
-              <p className="text-xs text-white/45 mt-2">
-                {devnetTxHash ? "Minting directly on devnet…" : "Submitting mint transaction…"}
-              </p>
-            </>
-          )}
+          <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-[11px] uppercase tracking-[0.18em] text-white/40">Status</span>
+              <span className={`text-xs font-semibold ${statusToneClass}`}>{statusLabel}</span>
+            </div>
 
-          {isPending && !isDevnet && (
-            <>
-              <BridgeStepList currentStep={bridgeStep} />
-              <BridgingProgress className="mt-3" />
-            </>
-          )}
-
-          {isDone && effectiveTxHash && (
-            <>
-              <div className="text-[11px] uppercase tracking-[0.18em] text-white/40 mb-1">
-                Tx hash
-              </div>
-              {explorerUrl ? (
-                <Link
-                  href={explorerUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-[12px] text-secondary break-all hover:underline"
-                >
-                  {effectiveTxHash}
-                </Link>
-              ) : (
-                <span className="text-[12px] text-secondary break-all">
-                  {effectiveTxHash}
-                </span>
-              )}
-              {bridgingTimeSec > 0 && (
-                <div className="mt-3 flex items-baseline gap-2">
-                  <span className="text-[11px] uppercase tracking-[0.18em] text-white/40">
-                    Bridging time
-                  </span>
-                  <span className="text-sm font-medium text-white/85">{bridgingTimeSec}s</span>
+            {isPending && isDevnet && (
+              <>
+                <div className="h-1 rounded-full bg-white/[0.06] overflow-hidden">
+                  <div
+                    className="h-full bg-gradient-to-r from-primary to-secondary"
+                    style={{
+                      width: devnetTxHash ? "78%" : "20%",
+                      transition: "width 4s ease-out",
+                    }}
+                  />
                 </div>
-              )}
-            </>
-          )}
+                <p className="text-xs text-white/45 mt-2">
+                  {devnetTxHash ? "Minting directly on devnet…" : "Submitting mint transaction…"}
+                </p>
+              </>
+            )}
 
-          {isFailure && (
-            <p className="text-xs text-white/55 mt-1">
-              {isDevnet
-                ? "We couldn't confirm the mint. Try again — the devnet has no rate limit."
-                : "The bridge transfer didn't complete in time. Please try again."}
-            </p>
-          )}
+            {isPending && !isDevnet && (
+              <>
+                <BridgeStepList currentStep={bridgeStep} />
+                <BridgingProgress className="mt-3" />
+                {showFaucetDownNotice && <FaucetDownNotice />}
+              </>
+            )}
+
+            {isDone && effectiveTxHash && (
+              <>
+                <div className="text-[11px] uppercase tracking-[0.18em] text-white/40 mb-1">
+                  Tx hash
+                </div>
+                {explorerUrl ? (
+                  <Link
+                    href={explorerUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-[12px] text-secondary break-all hover:underline"
+                  >
+                    {effectiveTxHash}
+                  </Link>
+                ) : (
+                  <span className="text-[12px] text-secondary break-all">
+                    {effectiveTxHash}
+                  </span>
+                )}
+                {bridgingTimeSec > 0 && (
+                  <div className="mt-3 flex items-baseline gap-2">
+                    <span className="text-[11px] uppercase tracking-[0.18em] text-white/40">
+                      Bridging time
+                    </span>
+                    <span className="text-sm font-medium text-white/85">{bridgingTimeSec}s</span>
+                  </div>
+                )}
+              </>
+            )}
+
+            {isFailure && (
+              <p className="text-xs text-white/55 mt-1">
+                {isDevnet
+                  ? "We couldn't confirm the mint. Try again — the devnet has no rate limit."
+                  : "The bridge transfer didn't complete in time. Please try again."}
+              </p>
+            )}
+          </div>
         </div>
 
         {(isDone || isFailure) && (
@@ -977,5 +1048,33 @@ function BridgeStepList({ currentStep }: { currentStep: BridgeStep }) {
         );
       })}
     </ol>
+  );
+}
+
+function FaucetDownNotice() {
+  return (
+    <div
+      role="note"
+      className="mt-3 rounded-xl border border-amber-400/30 bg-amber-400/[0.06] p-3"
+    >
+      <div className="flex items-start gap-2.5">
+        <span
+          aria-hidden="true"
+          className="mt-1 size-1.5 shrink-0 rounded-full bg-amber-300 shadow-[0_0_8px_currentColor]"
+        />
+        <p className="text-[12px] leading-relaxed text-amber-100/90">
+          This is taking longer than usual — the faucet may be temporarily down.
+          You can try the community faucet in the{" "}
+          <Link
+            href={COMMUNITY_FAUCET_DISCORD_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="font-medium text-amber-200 underline underline-offset-2 hover:text-amber-100"
+          >
+            #🚰・faucet channel on the XRPL EVM Discord <span aria-hidden="true">→</span>
+          </Link>
+        </p>
+      </div>
+    </div>
   );
 }

@@ -12,6 +12,8 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
+  // Matches --background oklch(0 0 0) so iOS Safari address bar blends with the page.
+  themeColor: "#000000",
 };
 
 export const metadata: Metadata = {
@@ -43,7 +45,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="en" style={{ colorScheme: "dark" }}>
       {/* 
         Make sure the <body> is "relative" so our absolutely positioned
         images can be placed behind other content via z-[-1].

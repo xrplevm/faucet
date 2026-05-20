@@ -14,7 +14,7 @@ Built with Next.js 16 (App Router), React 19, Tailwind v4, viem, and `xrpl@4.5`.
 | Chain ID | `1449000` (`0x161228`) | `1449900` (`0x161FAC`) |
 | RPC | `https://rpc.testnet.xrplevm.org/` | `https://rpc.devnet.xrplevm.org/` |
 | Explorer | `https://explorer.testnet.xrplevm.org` | `https://explorer.devnet.xrplevm.org` |
-| Faucet amount | 97 XRP | 100 XRP |
+| Faucet amount | 98.83 XRP | 100 XRP |
 | Mechanism | XRPL → bridge | Direct ERC20 mint |
 | Anti-abuse | None (open) | None (open) |
 
@@ -86,5 +86,14 @@ lib/
 ## Notes
 
 - The "Follow on X" / "Join Discord" gate is a client-side honor system, not a security check.
+- **Testnet faucet-down fallback:** the Testnet bridge polling runs up to ~25 min before marking `Timeout`. After 130s in `Pending`, the transaction modal surfaces a soft warning pointing users to the community faucet in the [`#🚰・faucet` channel of the XRPL EVM Discord](https://discord.gg/2BxtzqeZTu). The polling keeps running underneath; the warning is additive and disappears as soon as the bridge resolves.
 - The Devnet endpoint has no rate limit or anti-bot protection. If you need either later, the natural fit is Upstash Redis for per-address / per-IP `SET NX EX` rate limits, plus Cloudflare Turnstile for browser attestation.
 - Concurrent Devnet requests share one signer key; viem auto-fetches nonces per call, so simultaneous requests can collide. If traffic warrants it, add a queue or use viem's nonce manager.
+
+## Verifying changes locally
+
+```bash
+npm run lint && npx tsc --noEmit && npm run build
+```
+
+ESLint runs through the native flat config exported by `eslint-config-next@16` (`eslint-config-next/core-web-vitals` + `/typescript`). All three commands should pass clean before opening a PR.

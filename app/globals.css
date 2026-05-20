@@ -127,5 +127,18 @@ video {
   }
   body {
     @apply bg-background text-foreground;
+    /* Respect iPhone home-indicator inset so content doesn't sit under it. */
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  /*
+   * Removes the 300ms tap delay and the gray tap flash on iOS Safari so
+   * interactive elements feel native on touch devices (Vercel web guidelines).
+   */
+  button,
+  a,
+  [role="button"] {
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
   }
 }

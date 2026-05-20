@@ -109,10 +109,12 @@ export function BridgingProgress({ className }: { className?: string }) {
   }, []);
 
   return (
-    <div className={cn("flex items-center justify-center flex-col gap-2 mt-4 min-h-[40px] w-full", className)}>
+    // min-h-[88px] reserves vertical space for the rotating fact line (which
+    // can wrap to 2-3 lines on mobile) so swapping facts doesn't cause CLS.
+    <div className={cn("flex items-center justify-center flex-col gap-2 mt-4 min-h-[88px] w-full", className)}>
       <div className="flex items-center gap-2 animate-pulse">
-        <Loader2 className="w-4 h-4 animate-spin text-green-500" />
-        <span className="text-sm text-muted-foreground">Bridging in progress...</span>
+        <Loader2 aria-hidden="true" className="w-4 h-4 animate-spin text-green-500" />
+        <span className="text-sm text-muted-foreground">Bridging in progress…</span>
       </div>
       <div className="text-center text-xs sm:text-sm text-muted-foreground animate-pulse italic max-w-full break-words px-1">
         {currentFact}
