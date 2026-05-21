@@ -15,7 +15,6 @@ export function usePollDevnetTxStatus(txHash: string) {
   const [status, setStatus] = useState<DevnetTxStatus>("Pending");
 
   useEffect(() => {
-    setStatus("Pending");
     if (!txHash) return;
 
     let attempts = 0;
@@ -63,8 +62,12 @@ export function usePollDevnetTxStatus(txHash: string) {
     tick();
     intervalId = setInterval(tick, POLL_INTERVAL_MS);
 
+    // Reset is performed on cleanup (allowed by react-hooks/set-state-in-effect)
+    // so that when `txHash` changes, the previous effect's teardown returns
+    // status to its initial "Pending" before the new effect starts polling.
     return () => {
       if (intervalId) clearInterval(intervalId);
+      setStatus("Pending");
     };
   }, [txHash]);
 

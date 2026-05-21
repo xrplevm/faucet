@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState, useEffect, useMemo, JSX } from "react";
+import React, { useState, useEffect, useMemo, useSyncExternalStore, JSX } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { Logo } from "./logo";
 import { ConnectWalletButton } from "./connect-wallet-button";
@@ -40,7 +41,7 @@ const NETWORKS: NetworkSpec[] = [
     chainIdHex: "0x" + Number(1449000).toString(16),
     rpc: "rpc.testnet.xrplevm.org",
     explorer: "explorer.testnet.xrplevm.org",
-    amount: 97,
+    amount: 98.83,
     cooldown: "24 h",
     latency: "~2 min",
     bridged: true,
@@ -69,10 +70,16 @@ const NETWORK_BY_ID: Record<NetworkType, NetworkSpec> = {
 const EVM_ADDRESS_RE = /^0x[0-9a-fA-F]{40}$/;
 const looksLikeEvmStart = (a: string) => /^0x[0-9a-fA-F]{0,40}$/.test(a.trim());
 
+// Testnet bridge polling can run for ~25 min before timing out. After 130s in
+// "Pending" we surface a soft warning that the faucet may be down and point the
+// user to the community Discord faucet channel as a fallback. The polling keeps
+// running underneath; this is purely an additive UX hint.
+const FAUCET_DOWN_WARNING_DELAY_MS = 130_000;
+const COMMUNITY_FAUCET_DISCORD_URL = "https://discord.gg/2BxtzqeZTu";
+
 interface FaucetProps {
   network: NetworkType;
   setNetwork: React.Dispatch<React.SetStateAction<NetworkType>>;
-  evmAddressFromHeader?: string;
 }
 
 const getEthereumProvider = (): MetaMaskInpageProvider | undefined => {
@@ -81,6 +88,14 @@ const getEthereumProvider = (): MetaMaskInpageProvider | undefined => {
   }
   return undefined;
 };
+
+// Canonical "am I on the client?" snapshot for hydration-safe rendering.
+// Server snapshot is `false`, client snapshot is `true`, so the first client
+// render matches the SSR output and switches to `true` after hydration —
+// without ever calling setState inside an effect.
+const subscribeMounted = (): (() => void) => () => {};
+const getMountedClientSnapshot = (): boolean => true;
+const getMountedServerSnapshot = (): boolean => false;
 
 function DiagonalGrid({ side }: { side: "left" | "right" }) {
   const lines = Array.from({ length: 36 });
@@ -109,8 +124,8 @@ function DiagonalGrid({ side }: { side: "left" | "right" }) {
   );
 }
 
-export function Faucet({ network, setNetwork, evmAddressFromHeader }: FaucetProps): JSX.Element {
-  const [evmAddress, setEvmAddress] = useState<string>(evmAddressFromHeader || "");
+export function Faucet({ network, setNetwork }: FaucetProps): JSX.Element {
+  const [evmAddress, setEvmAddress] = useState<string>("");
   const [connectedAddress, setConnectedAddress] = useState<string>("");
   const [socialsCompleted, setSocialsCompleted] = useState({ twitter: false, discord: false });
   const [loading, setLoading] = useState<boolean>(false);
@@ -118,10 +133,20 @@ export function Faucet({ network, setNetwork, evmAddressFromHeader }: FaucetProp
   const [showMissingRequirementsModal, setShowMissingRequirementsModal] = useState<boolean>(false);
   const [showTxModal, setShowTxModal] = useState<boolean>(false);
   const [showInvalidAddressModal, setShowInvalidAddressModal] = useState<boolean>(false);
+  const [showFaucetErrorModal, setShowFaucetErrorModal] = useState<boolean>(false);
+  const [faucetErrorMessage, setFaucetErrorMessage] = useState<string>("");
   const [chainId, setChainId] = useState<string | null>(null);
   const [devnetSubmitError, setDevnetSubmitError] = useState<boolean>(false);
   const [devnetTxHash, setDevnetTxHash] = useState<string | null>(null);
   const [copied, setCopied] = useState<boolean>(false);
+
+  // Gate browser-dependent render branches behind `mounted` to prevent the
+  // server tree (no `window.ethereum`) from diverging from the client tree.
+  const mounted = useSyncExternalStore(
+    subscribeMounted,
+    getMountedClientSnapshot,
+    getMountedServerSnapshot,
+  );
 
   const ethereum = getEthereumProvider();
   const hasMetaMask: boolean = Boolean(ethereum);
@@ -134,10 +159,6 @@ export function Faucet({ network, setNetwork, evmAddressFromHeader }: FaucetProp
   const isConnected = connectedAddress !== "";
   const validAddr = EVM_ADDRESS_RE.test(evmAddress.trim());
   const showAddrError = !!evmAddress && !validAddr && evmAddress.length > 5;
-
-  useEffect(() => {
-    setEvmAddress(evmAddressFromHeader || "");
-  }, [evmAddressFromHeader]);
 
   useEffect(() => {
     async function fetchChainId() {
@@ -209,7 +230,8 @@ export function Faucet({ network, setNetwork, evmAddressFromHeader }: FaucetProp
       setShowTxModal(true);
     } catch (error: unknown) {
       console.error("Error requesting faucet:", error);
-      alert("Error requesting faucet: " + (error instanceof Error ? error.message : String(error)));
+      setFaucetErrorMessage(error instanceof Error ? error.message : String(error));
+      setShowFaucetErrorModal(true);
     } finally {
       setLoading(false);
     }
@@ -241,11 +263,11 @@ export function Faucet({ network, setNetwork, evmAddressFromHeader }: FaucetProp
         <DiagonalGrid side="right" />
       </div>
 
-      <main className="relative z-10 mx-auto max-w-5xl px-4 pt-10 md:pt-16 pb-10">
+      <main className="relative z-10 mx-auto w-full max-w-5xl px-4 sm:px-6 md:px-8 pt-8 md:pt-16 pb-10">
         {/* Header */}
-        <header className="flex items-center justify-between mb-10 md:mb-14">
-          <div className="text-white/95 animate-fade-in-left">
-            <Logo className="w-44 h-10" />
+        <header className="flex flex-wrap items-center justify-between gap-3 mb-8 md:mb-14">
+          <div className="text-white/95 animate-fade-in-left min-w-0">
+            <Logo className="w-36 h-8 sm:w-44 sm:h-10" />
           </div>
           <div className="hidden md:flex items-center gap-3 text-xs text-white/50 animate-fade-in-down">
             <span className="size-1.5 rounded-full bg-emerald-400 shadow-[0_0_8px_currentColor]" />
@@ -260,11 +282,11 @@ export function Faucet({ network, setNetwork, evmAddressFromHeader }: FaucetProp
           <p className="text-xs uppercase tracking-[0.22em] text-white/40 mb-3 font-medium animate-fade-in-up">
             XRPL EVM Faucet
           </p>
-          <h1 className="text-[34px] md:text-[44px] leading-[1.05] tracking-tight font-semibold animate-blur-reveal">
+          <h1 className="text-[28px] sm:text-[34px] md:text-[44px] leading-[1.1] md:leading-[1.05] tracking-tight font-semibold animate-blur-reveal break-words text-balance">
             Get test XRP, to your wallet
             <span className="animate-gradient-text bg-gradient-to-r from-primary via-secondary to-primary bg-[length:200%_auto] bg-clip-text text-transparent"> in seconds.</span>
           </h1>
-          <p className="mt-3 text-[15px] text-white/55 leading-relaxed animate-fade-in-up [animation-delay:280ms]">
+          <p className="mt-3 text-sm sm:text-[15px] text-white/55 leading-relaxed animate-fade-in-up [animation-delay:280ms]">
             Get test XRP delivered on the XRPL EVM sidechain. Pick a
             network, <b>CONNECT</b> or <b>PASTE</b> your address, and you&apos;re set.
           </p>
@@ -277,35 +299,35 @@ export function Faucet({ network, setNetwork, evmAddressFromHeader }: FaucetProp
             aria-hidden
             className="pointer-events-none absolute inset-x-20 top-0 h-px bg-gradient-to-r from-transparent via-primary to-transparent animate-edge-shimmer"
           />
-          <div className="relative p-5 md:p-8 grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-8">
+          <div className="relative p-4 sm:p-5 md:p-8 grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_320px] gap-6 md:gap-8">
             {/* LEFT — Form */}
-            <div className="space-y-7">
+            <div className="space-y-7 min-w-0">
               {/* Step 1 — Wallet */}
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
-                <div>
+                <div className="min-w-0">
                   <div className="text-[11px] uppercase tracking-[0.18em] text-white/40 font-medium mb-1">
                     Step 1
                   </div>
                   <h2 className="text-base font-semibold">Connect or paste an address</h2>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <ConnectWalletButton
-                    className="h-10 px-4 text-sm rounded-xl"
+                    className="h-11 px-4 text-sm rounded-xl"
                     onConnected={(addr: string) => {
                       setConnectedAddress(addr);
                       setEvmAddress(addr);
                     }}
                     onDisconnected={() => setConnectedAddress("")}
                   />
-                  {hasMetaMask && !isOnDesiredChain && (
-                    <MetamaskButton className="h-10 px-3 text-xs rounded-xl" network={network} />
+                  {mounted && hasMetaMask && !isOnDesiredChain && (
+                    <MetamaskButton className="h-11 px-3 text-xs rounded-xl" network={network} />
                   )}
                 </div>
               </div>
 
               {/* Address field */}
               <div>
-                <label className="text-xs text-white/45 mb-2 block font-medium">
+                <label htmlFor="evm-address" className="text-xs text-white/45 mb-2 block font-medium">
                   Recipient address
                 </label>
                 <div
@@ -313,28 +335,29 @@ export function Faucet({ network, setNetwork, evmAddressFromHeader }: FaucetProp
                     showAddrError ? "border-rose-500/40" : "border-white/10"
                   }`}
                 >
-                  <span className="text-white/30 text-sm">›</span>
+                  <span className="text-white/30 text-sm shrink-0">›</span>
                   <input
+                    id="evm-address"
                     value={evmAddress}
                     onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEvmAddress(e.target.value)}
                     disabled={isConnected}
-                    placeholder="0x5l8r9m… your EVM address"
+                    placeholder="0x… your EVM address"
                     spellCheck={false}
                     autoComplete="off"
-                    className="flex-1 bg-transparent outline-none text-[15px] placeholder:text-white/25 disabled:text-white/70 disabled:cursor-not-allowed"
+                    className="flex-1 min-w-0 bg-transparent outline-none text-sm sm:text-[15px] placeholder:text-white/25 disabled:text-white/70 disabled:cursor-not-allowed"
                   />
                   {evmAddress && (
                     <button
                       onClick={copyAddr}
                       type="button"
-                      className="text-[11px] text-white/45 hover:text-white/85 px-2 py-1 rounded-xl hover:bg-white/5 transition-colors font-medium"
+                      className="shrink-0 h-11 px-3 text-[11px] text-white/45 hover:text-white/85 rounded-xl hover:bg-white/5 transition-colors font-medium"
                       title="Copy"
                     >
                       {copied ? "Copied!" : "Copy"}
                     </button>
                   )}
                   {validAddr && (
-                    <span className="size-5 rounded-full bg-emerald-500/20 grid place-items-center">
+                    <span className="shrink-0 size-5 rounded-full bg-emerald-500/20 grid place-items-center">
                       <svg
                         viewBox="0 0 16 16"
                         className="size-3 text-emerald-300"
@@ -398,8 +421,8 @@ export function Faucet({ network, setNetwork, evmAddressFromHeader }: FaucetProp
             </div>
 
             {/* RIGHT — Order summary */}
-            <aside className="lg:sticky lg:top-6 lg:self-start animate-fade-in-right">
-              <div className="relative overflow-hidden rounded-xl border border-white/10 bg-gradient-to-b from-white/[0.04] to-white/[0.01] p-5">
+            <aside className="lg:sticky lg:top-6 lg:self-start animate-fade-in-right min-w-0">
+              <div className="relative overflow-hidden rounded-xl border border-white/10 bg-gradient-to-b from-white/[0.04] to-white/[0.01] p-4 sm:p-5">
                 {/* Decorative rotating ring */}
                 <span
                   aria-hidden
@@ -407,7 +430,7 @@ export function Faucet({ network, setNetwork, evmAddressFromHeader }: FaucetProp
                 />
 
                 <div className="flex items-baseline gap-2 mb-4">
-                  <span className="text-[44px] leading-none font-semibold tracking-tight">
+                  <span className="text-[36px] sm:text-[44px] leading-none font-semibold tracking-tight tabular-nums">
                     {current.amount}
                   </span>
                   <span className="text-white/50 text-sm">XRP</span>
@@ -423,7 +446,7 @@ export function Faucet({ network, setNetwork, evmAddressFromHeader }: FaucetProp
                 <button
                   onClick={handleRequestXRP}
                   disabled={loading || !!txData}
-                  className="mt-6 w-full h-12 rounded-xl text-[15px] font-semibold relative overflow-hidden transition-all disabled:opacity-70 disabled:cursor-not-allowed text-white"
+                  className="mt-6 w-full min-h-12 h-12 rounded-xl text-sm sm:text-[15px] font-semibold relative overflow-hidden transition-all disabled:opacity-70 disabled:cursor-not-allowed text-white px-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 focus-visible:ring-offset-2 focus-visible:ring-offset-black"
                   style={{
                     background:
                       "linear-gradient(180deg, oklch(0.5 0.3 296.7) 0%, oklch(0.42 0.28 296.7) 100%)",
@@ -442,10 +465,10 @@ export function Faucet({ network, setNetwork, evmAddressFromHeader }: FaucetProp
 
         {/* Below card meta */}
         <div className="mt-6 flex flex-wrap items-center gap-x-6 gap-y-2 text-[12px] text-white/40">
-          <span>
+          <span className="break-all">
             RPC: <span className="text-white/65">{current.rpc}</span>
           </span>
-          <span>
+          <span className="break-all">
             Explorer: <span className="text-white/65">{current.explorer}</span>
           </span>
         </div>
@@ -497,7 +520,7 @@ export function Faucet({ network, setNetwork, evmAddressFromHeader }: FaucetProp
             <div className="flex justify-center mt-2">
               <button
                 onClick={() => setShowMissingRequirementsModal(false)}
-                className="h-10 px-5 rounded-xl bg-white/10 hover:bg-white/15 text-sm font-semibold"
+                className="h-11 px-5 rounded-xl bg-white/10 hover:bg-white/15 text-sm font-semibold"
               >
                 Got it
               </button>
@@ -519,7 +542,29 @@ export function Faucet({ network, setNetwork, evmAddressFromHeader }: FaucetProp
             <div className="flex justify-center mt-2">
               <button
                 onClick={() => setShowInvalidAddressModal(false)}
-                className="h-10 px-5 rounded-xl bg-white/10 hover:bg-white/15 text-sm font-semibold"
+                className="h-11 px-5 rounded-xl bg-white/10 hover:bg-white/15 text-sm font-semibold"
+              >
+                Close
+              </button>
+            </div>
+          </AlertDialogContent>
+        </AlertDialog>
+      )}
+
+      {/* Faucet request error */}
+      {showFaucetErrorModal && (
+        <AlertDialog open={showFaucetErrorModal} onOpenChange={setShowFaucetErrorModal}>
+          <AlertDialogContent className="bg-[#0c0c0c] border-white/12 rounded-xl">
+            <AlertDialogHeader>
+              <AlertDialogTitle className="text-center">Faucet request failed</AlertDialogTitle>
+            </AlertDialogHeader>
+            <p className="text-sm text-white/55 text-center break-words">
+              {faucetErrorMessage || "Something went wrong while contacting the faucet. Please try again."}
+            </p>
+            <div className="flex justify-center mt-2">
+              <button
+                onClick={() => setShowFaucetErrorModal(false)}
+                className="h-11 px-5 rounded-xl bg-white/10 hover:bg-white/15 text-sm font-semibold"
               >
                 Close
               </button>
@@ -652,7 +697,7 @@ function NetworkCards({
             type="button"
             onClick={() => onChange(n.id)}
             aria-pressed={active}
-            className={`flex items-center gap-2 h-10 px-4 rounded-xl border text-sm font-semibold transition-all outline-none focus-visible:ring-2 focus-visible:ring-primary/60 ${
+            className={`flex items-center gap-2 h-11 px-4 rounded-xl border text-sm font-semibold transition-all outline-none focus-visible:ring-2 focus-visible:ring-primary/60 ${
               active
                 ? "bg-primary/15 border-primary/60 text-white"
                 : "bg-white/[0.03] border-white/10 text-white/60 hover:bg-white/[0.06] hover:text-white/85"
@@ -675,7 +720,7 @@ function SummaryRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-center justify-between gap-3 border-b border-white/[0.06] pb-2 last:border-0">
       <dt className="text-white/40">{label}</dt>
-      <dd className="text-white/85 truncate">{value}</dd>
+      <dd className="text-white/85 truncate tabular-nums">{value}</dd>
     </div>
   );
 }
@@ -697,7 +742,7 @@ function TaskRow({
     <Link
       href={href}
       target="_blank"
-      rel="noreferrer"
+      rel="noopener noreferrer"
       onClick={onClick}
       className={`flex items-center gap-3 h-14 px-4 rounded-xl border transition-all ${
         done
@@ -710,7 +755,7 @@ function TaskRow({
           done ? "bg-emerald-500/15" : "bg-white/[0.06]"
         }`}
       >
-        <img src={icon} alt="" className="size-4 object-contain opacity-90" />
+        <Image src={icon} alt="" width={16} height={16} className="size-4 object-contain opacity-90" />
       </span>
       <span className="flex-1 text-sm font-medium">{title}</span>
       <span
@@ -802,6 +847,27 @@ function TransactionStatusModal({
   const isDone = effectiveStatus === "Arrived";
   const isFailure = effectiveStatus === "Failed" || effectiveStatus === "Timeout";
 
+  // Soft warning shown when a testnet bridge has been pending for
+  // FAUCET_DOWN_WARNING_DELAY_MS. Resets whenever the modal closes or the
+  // status leaves "Pending" so the next request starts clean.
+  const [showFaucetDownNotice, setShowFaucetDownNotice] = useState<boolean>(false);
+  const shouldArmFaucetDownTimer = open && !isDevnet && isPending;
+
+  useEffect(() => {
+    if (!shouldArmFaucetDownTimer) return;
+    const timerId = window.setTimeout(() => {
+      setShowFaucetDownNotice(true);
+    }, FAUCET_DOWN_WARNING_DELAY_MS);
+    // Reset is performed on cleanup: whenever the timer is armed and then
+    // disarmed (modal closes, status leaves "Pending", devnet selected), the
+    // previous effect's teardown clears the notice. Initial state is already
+    // `false`, so the "never-armed" path needs no extra reset.
+    return () => {
+      window.clearTimeout(timerId);
+      setShowFaucetDownNotice(false);
+    };
+  }, [shouldArmFaucetDownTimer]);
+
   let dotClass = "bg-amber-400 animate-pulse";
   let title = "Transaction in progress";
   if (isDone) {
@@ -827,78 +893,83 @@ function TransactionStatusModal({
           <AlertDialogTitle className="sr-only">Transaction status</AlertDialogTitle>
         </AlertDialogHeader>
 
-        <div className="flex items-center gap-3 mb-1">
-          <span className={`size-2.5 rounded-full ${dotClass} shadow-[0_0_10px_currentColor]`} />
-          <h3 className="text-base font-semibold">{title}</h3>
-        </div>
-
-        <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-[11px] uppercase tracking-[0.18em] text-white/40">Status</span>
-            <span className={`text-xs font-semibold ${statusToneClass}`}>{statusLabel}</span>
+        {/* role+aria-live announces Pending → Arrived/Failed transitions to AT users,
+            since the dot/title/statusLabel are the only visual cues of progress. */}
+        <div role="status" aria-live="polite">
+          <div className="flex items-center gap-3 mb-1">
+            <span className={`size-2.5 rounded-full ${dotClass} shadow-[0_0_10px_currentColor]`} />
+            <h3 className="text-base font-semibold">{title}</h3>
           </div>
 
-          {isPending && isDevnet && (
-            <>
-              <div className="h-1 rounded-full bg-white/[0.06] overflow-hidden">
-                <div
-                  className="h-full bg-gradient-to-r from-primary to-secondary"
-                  style={{
-                    width: devnetTxHash ? "78%" : "20%",
-                    transition: "width 4s ease-out",
-                  }}
-                />
-              </div>
-              <p className="text-xs text-white/45 mt-2">
-                {devnetTxHash ? "Minting directly on devnet…" : "Submitting mint transaction…"}
-              </p>
-            </>
-          )}
+          <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-[11px] uppercase tracking-[0.18em] text-white/40">Status</span>
+              <span className={`text-xs font-semibold ${statusToneClass}`}>{statusLabel}</span>
+            </div>
 
-          {isPending && !isDevnet && (
-            <>
-              <BridgeStepList currentStep={bridgeStep} />
-              <BridgingProgress className="mt-3" />
-            </>
-          )}
-
-          {isDone && effectiveTxHash && (
-            <>
-              <div className="text-[11px] uppercase tracking-[0.18em] text-white/40 mb-1">
-                Tx hash
-              </div>
-              {explorerUrl ? (
-                <Link
-                  href={explorerUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-[12px] text-secondary break-all hover:underline"
-                >
-                  {effectiveTxHash}
-                </Link>
-              ) : (
-                <span className="text-[12px] text-secondary break-all">
-                  {effectiveTxHash}
-                </span>
-              )}
-              {bridgingTimeSec > 0 && (
-                <div className="mt-3 flex items-baseline gap-2">
-                  <span className="text-[11px] uppercase tracking-[0.18em] text-white/40">
-                    Bridging time
-                  </span>
-                  <span className="text-sm font-medium text-white/85">{bridgingTimeSec}s</span>
+            {isPending && isDevnet && (
+              <>
+                <div className="h-1 rounded-full bg-white/[0.06] overflow-hidden">
+                  <div
+                    className="h-full bg-gradient-to-r from-primary to-secondary"
+                    style={{
+                      width: devnetTxHash ? "78%" : "20%",
+                      transition: "width 4s ease-out",
+                    }}
+                  />
                 </div>
-              )}
-            </>
-          )}
+                <p className="text-xs text-white/45 mt-2">
+                  {devnetTxHash ? "Minting directly on devnet…" : "Submitting mint transaction…"}
+                </p>
+              </>
+            )}
 
-          {isFailure && (
-            <p className="text-xs text-white/55 mt-1">
-              {isDevnet
-                ? "We couldn't confirm the mint. Try again — the devnet has no rate limit."
-                : "The bridge transfer didn't complete in time. Please try again."}
-            </p>
-          )}
+            {isPending && !isDevnet && (
+              <>
+                <BridgeStepList currentStep={bridgeStep} />
+                <BridgingProgress className="mt-3" />
+                {showFaucetDownNotice && <FaucetDownNotice />}
+              </>
+            )}
+
+            {isDone && effectiveTxHash && (
+              <>
+                <div className="text-[11px] uppercase tracking-[0.18em] text-white/40 mb-1">
+                  Tx hash
+                </div>
+                {explorerUrl ? (
+                  <Link
+                    href={explorerUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-[12px] text-secondary break-all hover:underline"
+                  >
+                    {effectiveTxHash}
+                  </Link>
+                ) : (
+                  <span className="text-[12px] text-secondary break-all">
+                    {effectiveTxHash}
+                  </span>
+                )}
+                {bridgingTimeSec > 0 && (
+                  <div className="mt-3 flex items-baseline gap-2">
+                    <span className="text-[11px] uppercase tracking-[0.18em] text-white/40">
+                      Bridging time
+                    </span>
+                    <span className="text-sm font-medium text-white/85">{bridgingTimeSec}s</span>
+                  </div>
+                )}
+              </>
+            )}
+
+            {isFailure && (
+              <p className="text-xs text-white/55 mt-1">
+                {isDevnet
+                  ? "We couldn't confirm the mint. Try again — the devnet has no rate limit."
+                  : "The bridge transfer didn't complete in time. Please try again."}
+              </p>
+            )}
+          </div>
         </div>
 
         {(isDone || isFailure) && (
@@ -963,19 +1034,47 @@ function BridgeStepList({ currentStep }: { currentStep: BridgeStep }) {
                 <span className="size-1.5 rounded-full bg-white/25" />
               )}
             </span>
-            <div className="flex flex-col">
+            <div className="flex flex-col min-w-0">
               <span
-                className={`text-sm font-medium ${
+                className={`text-sm font-medium break-words ${
                   isCurrent ? "text-white" : isDone ? "text-white/70" : "text-white/40"
                 }`}
               >
                 {step.label}
               </span>
-              <span className="text-[11px] text-white/40">{step.sub}</span>
+              <span className="text-[11px] text-white/40 break-words">{step.sub}</span>
             </div>
           </li>
         );
       })}
     </ol>
+  );
+}
+
+function FaucetDownNotice() {
+  return (
+    <div
+      role="note"
+      className="mt-3 rounded-xl border border-amber-400/30 bg-amber-400/[0.06] p-3"
+    >
+      <div className="flex items-start gap-2.5">
+        <span
+          aria-hidden="true"
+          className="mt-1 size-1.5 shrink-0 rounded-full bg-amber-300 shadow-[0_0_8px_currentColor]"
+        />
+        <p className="text-[12px] leading-relaxed text-amber-100/90">
+          This is taking longer than usual — the faucet may be temporarily down.
+          You can try the community faucet in the{" "}
+          <Link
+            href={COMMUNITY_FAUCET_DISCORD_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="font-medium text-amber-200 underline underline-offset-2 hover:text-amber-100"
+          >
+            #🚰・faucet channel on the XRPL EVM Discord <span aria-hidden="true">→</span>
+          </Link>
+        </p>
+      </div>
+    </div>
   );
 }

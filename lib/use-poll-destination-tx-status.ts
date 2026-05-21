@@ -13,7 +13,7 @@ const EVM_EXPLORER_API: Record<"Testnet", string> = {
 };
 
 const NATIVE_TOKEN_ADDRESS = "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE";
-const FAUCET_AMOUNT_XRP = 97.3;
+const FAUCET_AMOUNT_XRP = 98.83;
 const AMOUNT_TOLERANCE_XRP = 3;
 
 interface AxelarStepRef {
@@ -84,8 +84,6 @@ export function usePollDestinationTxStatus(
     // Devnet has no bridge — the EVM tx IS the result, so nothing to poll.
     if (network !== "Testnet") return;
     if (!txHash) return;
-
-    setBridgeStep("submitted");
 
     const startedAtMs = sourceCloseTimeIso ? new Date(sourceCloseTimeIso).getTime() : Date.now();
     let arrived = false;
@@ -211,7 +209,12 @@ export function usePollDestinationTxStatus(
 
     tick();
     const intervalId = setInterval(tick, POLL_INTERVAL_MS);
-    return () => clearInterval(intervalId);
+    // Reset is performed on cleanup so deps changes (new tx) restore the
+    // step to its initial "submitted" before the next effect starts advancing.
+    return () => {
+      clearInterval(intervalId);
+      setBridgeStep("submitted");
+    };
   }, [destinationAddress, sourceCloseTimeIso, txHash, network]);
 
   return { status, destinationTxHash, bridgingTimeMs, bridgeStep };

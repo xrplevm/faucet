@@ -4,12 +4,25 @@
 
 @custom-variant dark (&:is(.dark *));
 
+html,
+body {
+  /* Prevent horizontal overflow on all routes (mobile responsive AC #1). */
+  overflow-x: hidden;
+  max-width: 100%;
+}
+
 body {
   background-color: var(--background);
 }
 
 html {
   scroll-behavior: smooth;
+}
+
+img,
+video {
+  max-width: 100%;
+  height: auto;
 }
 
 :root {
@@ -114,5 +127,18 @@ html {
   }
   body {
     @apply bg-background text-foreground;
+    /* Respect iPhone home-indicator inset so content doesn't sit under it. */
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  /*
+   * Removes the 300ms tap delay and the gray tap flash on iOS Safari so
+   * interactive elements feel native on touch devices (Vercel web guidelines).
+   */
+  button,
+  a,
+  [role="button"] {
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
   }
 }

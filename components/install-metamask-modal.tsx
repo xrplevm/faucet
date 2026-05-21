@@ -14,15 +14,15 @@ export function InstallMetamaskModal({ open, onClose }: InstallMetamaskModalProp
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-      <div className="bg-[#1E1E1E] border border-white/10 rounded-2xl p-6 max-w-md w-full shadow-2xl space-y-5">
-        <h2 className="text-xl font-bold text-white">MetaMask Required</h2>
+      <div className="bg-[#1E1E1E] border border-white/10 rounded-2xl p-5 sm:p-6 max-w-md w-full max-h-[calc(100vh-2rem)] overflow-y-auto shadow-2xl space-y-5">
+        <h2 className="text-lg sm:text-xl font-bold text-white">MetaMask Required</h2>
         <p className="text-sm text-muted-foreground leading-relaxed">
           To connect your wallet and interact with XRPL EVM, you need to install MetaMask.
           <br />
           Once installed, you can reload this page to start.
         </p>
 
-        <div className="flex flex-col sm:flex-row justify-end gap-3 pt-2">
+        <div className="flex flex-col sm:flex-row sm:flex-wrap sm:justify-end gap-3 pt-2">
           <Button
             variant="secondary"
             className="border-white/10 bg-white/5 text-white hover:bg-white/10"

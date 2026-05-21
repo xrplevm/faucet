@@ -6,7 +6,7 @@
     "dev": "next dev --turbopack -p 5089",
     "build": "next build",
     "start": "next start -p 5089",
-    "lint": "next lint"
+    "lint": "eslint ."
   },
   "dependencies": {
     "@metamask/providers": "22.1.1",
@@ -28,7 +28,6 @@
     "xrpl": "4.5.0"
   },
   "devDependencies": {
-    "@eslint/eslintrc": "3.3.3",
     "@tailwindcss/postcss": "4.1.18",
     "@types/node": "25.0.10",
     "@types/react": "19.2.9",
